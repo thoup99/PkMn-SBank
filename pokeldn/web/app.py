@@ -14,6 +14,7 @@ from pokeldn.pokemon import BuilderError, _command
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pokeldn.web.dummy import reserve_box
+from pokeldn.web.live import LiveTrading
 
 
 class Pokemon(BaseModel):
@@ -100,6 +101,17 @@ class TradeAction(BaseModel):
     fault_after: int = Field(strict=True, default=0, ge=0, le=5)
 
 
+class USBStart(BaseModel):
+    entry_id: str = Field(min_length=1,max_length=160)
+    device: str = Field(min_length=1,max_length=200)
+    code: str = Field(pattern=r"^[0-9]{8}$")
+    request_id: str = Field(min_length=36,max_length=36)
+
+
+class USBRecovery(BaseModel):
+    resolve_without_confirmation: bool = Field(default=False, strict=True)
+
+
 def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None,
                mode: str | None = None) -> FastAPI:
     mode = mode or os.environ.get("PKMN_SBANK_MODE", "bank")
@@ -108,9 +120,10 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     root = data_dir or Path(os.environ.get("POKELDN_DATA", str(Path.home() / ".local/share/pkmn-sbank"))) / "web-bank"
     store = BankStore(root)
     trading = SimulatedTrading(store)
+    usb = LiveTrading(store)
     from pokeldn.app.sprites import SpriteCache
     sprites = SpriteCache(folder=root / "sprites")
-    app = FastAPI(title="PkMn-SBank", version="0.3.0", description="Pi 5 Bank storage and simulated trading; hardware control comes later.")
+    app = FastAPI(title="PkMn-SBank", version="0.5.0", description="Pi 5 Bank storage, simulated trading, and single Sword/Shield trades over USB ESP32-S3.")
 
     @app.exception_handler(StorageError)
     async def storage_error(request, error):
@@ -252,6 +265,24 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     @app.post("/api/trade/session/{session_id}/{action}")
     def trade_action(session_id: str, action: Literal["start", "advance", "resume", "cancel"], value: TradeAction):
         return trading.action(session_id, action, value.version, scenario=value.scenario, fault_after=value.fault_after)
+
+    @app.get("/api/usb/status")
+    def usb_status():
+        if mode == "demo":
+            return {"supported_host":False,"keys_available":False,"devices":[],"session":None,"logs":[]}
+        return usb.current()
+
+    @app.post("/api/usb/start")
+    def usb_start(value: USBStart):
+        return usb.start(value.entry_id,value.device,value.code,value.request_id)
+
+    @app.post("/api/usb/{session_id}/stop")
+    def usb_stop(session_id: str):
+        return usb.cancel(session_id)
+
+    @app.post("/api/usb/{session_id}/recover")
+    def usb_recover(session_id: str,value: USBRecovery):
+        return usb.recover(session_id,resolve=value.resolve_without_confirmation)
 
     @app.get("/api/{path:path}", include_in_schema=False)
     def unknown_api(path: str):

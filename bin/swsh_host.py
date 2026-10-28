@@ -220,6 +220,8 @@ def build_parser():
     ap.add_argument("--network-id", default=None,
                     help="advertise 0x00, hex; a searching Sword joins only a larger one than its "
                          "own; default 0xFFFF and two random bytes")
+    ap.add_argument("--one-trade-receipt", default=None, metavar="PATH",
+                    help="bounded single Link Trade; fsync a confirmation receipt and finish after save/migration")
     ap.add_argument("--seconds", type=float, default=300)
     ap.add_argument("--capture", default=None)
     ap.add_argument("--raid-boss", default=None, metavar="PK8",
@@ -371,6 +373,10 @@ def show_lobby(app_data, boss_pk8, legendary, code):
 def main(argv=None):
     ap = build_parser()
     args = ap.parse_args(argv)
+    if args.one_trade_receipt:
+        if args.online or args.raid_boss or args.raid_event or args.lair_legendary or args.trade_back or len(args.offer_file) != 1:
+            ap.error("--one-trade-receipt requires one ordinary Link Trade offer")
+        args.migrate = True
     trade_back.check(ap, args, "--offer-file", "--online", "--raid-boss", "--raid-event", "--lair-legendary")
     if args.online and args.offer_file:
         print("[sw] --online offers the partner's Pokemon; --offer-file is ignored")
@@ -567,7 +573,11 @@ def main(argv=None):
             record({"rec": "trade", "kind": kind, **row})
             if kind == "peer_exchange" and args.received:
                 path = pokemon_service.trade_path(args.received, n + trades[st.ip].trades + 1)
-                write_file(path, bytes.fromhex(row['pk8']))
+                if args.one_trade_receipt:
+                    from pokeldn.app.trade_receipt import write_candidate
+                    write_candidate(path, bytes.fromhex(row['pk8']))
+                else:
+                    write_file(path, bytes.fromhex(row['pk8']))
                 print(f"[sw] the joiner's Pokemon written to {path}")
 
         def next_offer(k):
@@ -614,6 +624,7 @@ def main(argv=None):
                                              if snapshot is None else None,
                                              next_offer=next_offer, accept_first=args.accept_first,
                                              lead=args.lead, queued=len(args.offer_file) - n,
+                                             trade_limit=1 if args.one_trade_receipt else 0,
                                              partner=partner)
         print(f"[sw] {st.ip}: trade {n + 1} starts")
 
@@ -668,7 +679,7 @@ def main(argv=None):
                 host.on_packet(payload, src_ip, now)
             host.tick(now)
             for ip, st in host.stations.items():
-                if st.state == "joined" and ip not in trades:
+                if st.state == "joined" and ip not in trades and not (args.one_trade_receipt and trades):
                     start_trade(st)
             # Hand the session to the console as a leaving host does, then close the network.
             if host.migrating is None and any(getattr(tr, "finished", False) for tr in trades.values()):
@@ -681,11 +692,16 @@ def main(argv=None):
             for tr in list(trades.values()):
                 guarded(tr.tick, now)
                 if tr.trades > seen.get(tr, 0):
+                    if args.one_trade_receipt and completed[0] == 0:
+                        from pokeldn.app.trade_receipt import write_receipt
+                        write_receipt(args.one_trade_receipt, tr.peer_pk8, tr.offer_pk8)
                     completed[0] += tr.trades - seen.get(tr, 0)
                     seen[tr] = tr.trades
                     left = len(args.offer_file) - completed[0]
                     print(f"[sw] trade {completed[0]} complete"
                           + (f"; {left} queued" if left > 0 else ""))
+            if args.one_trade_receipt and completed[0] >= 1 and any(getattr(tr, "stage", "") == "done" for tr in trades.values()):
+                break
             transport.wait_readable(0.02)
     except KeyboardInterrupt:
         print("\n[sw] stopping")

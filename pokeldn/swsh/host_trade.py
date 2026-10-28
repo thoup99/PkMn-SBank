@@ -148,7 +148,7 @@ class HostTrade:
     def __init__(self, self_id, peer_id, snapshot, offer_pk8, send, send_broadcast, send_mesh,
                  log=print, end_delay=END_DELAY, auto_accept=True, record=None, migrate=False,
                  snapshot_builder=None, next_offer=None, accept_first=False, lead=None,
-                 queued=0, partner=None):
+                 queued=0, partner=None, trade_limit=0):
         self.self_id, self.peer_id = self_id, peer_id
         self.snapshot = bytes(snapshot) if snapshot is not None else None
         self.offer_pk8 = bytes(offer_pk8) if offer_pk8 is not None else None
@@ -185,6 +185,7 @@ class HostTrade:
         self.accept_first = accept_first      # a player's side: accept before the joiner does
         # A player's side: with a record still queued, offer it `lead` seconds after a trade.
         self.lead, self.queued = lead, queued
+        self.trade_limit = trade_limit
         # Online (pokeldn.online): our offer is the partner's console's, and our 4 waits for theirs.
         self.partner = partner
         self.partner_lost = False
@@ -471,6 +472,8 @@ class HostTrade:
 
     def _next_round(self):
         """The joiner offers from its box after a trade: the next trade on this session."""
+        if self.trade_limit and self.trades >= self.trade_limit:
+            return
         if self.partner is not None:
             self.offer_pk8 = None
         elif self.next_offer is not None:

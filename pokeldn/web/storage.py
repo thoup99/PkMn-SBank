@@ -115,7 +115,7 @@ class BankStore:
                 raise StorageError("A Bank snapshot failed its integrity check. Restore a verified backup.", 503)
         return state
 
-    def _commit(self, operation, mutate, *, recovery=False, trade=False):
+    def _commit(self, operation, mutate, *, recovery=False, trade=False, live=False):
         with self.locked():
             try:
                 current = self._current()
@@ -129,6 +129,9 @@ class BankStore:
                 if not recovery:
                     raise
                 state = self._state(None)
+            live_session = state.get("live_session")
+            if live_session and live_session.get("status") in {"starting", "running", "stopping"} and not live:
+                raise StorageError("Stop the USB trade before changing Bank data, running a simulation, or restoring a backup.")
             session = state.get("trade_session")
             if session is not None and not trade:
                 # Lazy import keeps the generic Bank module independent of web session code.
@@ -389,4 +392,4 @@ class BankStore:
                 target['slots'][target['slots'].index(None)]=entry.id
             state['received_receipts'][receipt]={'id':entry.id,'sha256':sha,'time':time.time()}
             return entry.id
-        return self._commit('Received Pokémon into normal boxes',apply,trade=True)
+        return self._commit('Received Pokémon into normal boxes',apply,trade=True,live=True)

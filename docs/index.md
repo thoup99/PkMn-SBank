@@ -11,7 +11,7 @@ Android phone or over Bluetooth from an iPhone. These pages document the protoco
 citations, disassembly addresses and hardware measurements.
 
 For PkMn-SBank, start with [Raspberry Pi 5 website testing](pi5-website.md),
-then [simulated trading](simulated-trading.md).
+then [simulated trading](simulated-trading.md) or [USB hardware testing](usb-trading.md).
 Upstream tools retain [app setup](gui.md) and [command-line usage](usage.md).
 
 ## Targets
