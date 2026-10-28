@@ -72,15 +72,22 @@ v6.1 and the existing [firmware instructions](gui.md#build-a-desktop-app).
 
 ## Install keys locally
 
-Keep keys outside the repository. The existing installer can install your file:
+In website **Settings → Switch keys**, select your own `prod.keys` file. The
+Pi validates its text format and required LDN key entries, then installs it with
+owner-only file permissions. Uploads replace existing keys atomically and are
+blocked during an active USB trade or while an orphan process owns the USB lock.
+The file is limited to 256 KiB; invalid uploads leave existing keys unchanged.
+Key contents are never returned by the API or included in Bank snapshots. Use
+the upload on your trusted LAN; plain HTTP does not encrypt the upload in transit.
+
+Alternatively, keep keys outside the repository and use the existing installer:
 
 ```sh
 bash scripts/install_switch_keys.sh --source /absolute/path/to/your/prod.keys
 ```
 
 The default web location is `~/.switch/prod.keys`. You can instead set
-`PKMN_SBANK_KEYS=/absolute/path/to/prod.keys` when launching. Do not upload or paste
-keys into the website or a bug report. The UI only reports whether a readable file
+`PKMN_SBANK_KEYS=/absolute/path/to/prod.keys` when launching. Upload only through Settings; do not paste keys into a bug report. The UI only reports whether a readable file
 is available; it never returns key contents.
 
 ## First deposit test

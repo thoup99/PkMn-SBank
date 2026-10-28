@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Box, Page, Pokemon } from "./types";
 import Trading from "./Trading";
 import USBTrading from "./USBTrading";
+import KeysSettings from "./KeysSettings";
 import { matches, pageFromHash } from "./types";
 import {
   ImportTools,
@@ -613,15 +614,14 @@ export default function App() {
                 <div className="setting-row">
                   <span>
                     <strong>Host architecture</strong>
-                    <small>Raspberry Pi 5 → USB → ESP32-S3 (future)</small>
+                    <small>Raspberry Pi 5 → USB → ESP32-S3</small>
                   </span>
                 </div>
                 <p className="muted">
-                  Keys, board configuration, and transfer controls remain in the
-                  existing upstream tools until their web integration is
-                  implemented.
+                  Upload your Switch keys below. Real USB trade controls are on the Trading page.
                 </p>
               </section>
+              {!demo && <KeysSettings />}
               {!demo && <StorageSettings onChange={reload} />}
             </>
           )}

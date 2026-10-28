@@ -19,6 +19,7 @@ from pokeldn.app.paths import ROOT
 from pokeldn.swsh import pokemon as swsh_pokemon
 from pokeldn.web.dummy import DummyOffers,is_dummy
 from pokeldn.web.serve import supported_host
+from pokeldn.web.keys import keys_path
 from pokeldn.web.storage import StorageError,durable_write
 
 ACTIVE={'starting','running','stopping'}
@@ -66,10 +67,22 @@ class LiveTrading:
                     s=state['live_session'];s.update(status='interrupted',message='Server restarted. Do not repeat the trade; recover the durable receipt after the old process exits.')
                     return copy.deepcopy(s)
                 session=self._mutate('USB session interrupted; recovery required',interrupt)
-            keys=Path(os.environ.get('PKMN_SBANK_KEYS',str(Path.home()/'.switch/prod.keys'))).expanduser()
+            keys=keys_path()
             return {'supported_host':self.host_check(),'keys_available':keys.is_file() and os.access(keys,os.R_OK),
                     'devices':self.devices() if self.host_check() else [],'game':'swsh',
                     'session':session,'logs':list(self.logs)}
+
+    def install_keys(self, content):
+        from pokeldn.web.keys import install
+        with self.lock:
+            session = self._read()
+            if session and session['status'] in ACTIVE:
+                raise StorageError('Stop the USB trade before replacing keys.')
+            fd = self._usb_lock()
+            try:
+                return install(content)
+            finally:
+                os.close(fd)
 
     def start(self,entry_id,device,code,request_id):
         with self.lock:
@@ -79,7 +92,7 @@ class LiveTrading:
             if device not in {p['device'] for p in self.devices()}:
                 raise StorageError('Choose an attached Espressif native USB port. S3 boards must use the native USB connector.',422)
             if not os.access(device,os.R_OK|os.W_OK):raise StorageError('The Pi user cannot access this serial port. Add the user to dialout and log in again.',422)
-            keys=Path(os.environ.get('PKMN_SBANK_KEYS',str(Path.home()/'.switch/prod.keys'))).expanduser()
+            keys=keys_path()
             if not keys.is_file() or not os.access(keys,os.R_OK):raise StorageError('Install your own Switch prod.keys on the Pi before a real trade.',422)
             previous=self._read()
             if previous and previous.get('request_id')==request_id:return previous

@@ -114,8 +114,7 @@ export default function USBTrading({
       )}
       {status && !status.keys_available && (
         <p className="filter-message">
-          Install your own Switch prod.keys on the Pi using the hardware guide.
-          Keys are never uploaded in this page.
+          Upload your own Switch prod.keys in Settings or install them locally on the Pi.
         </p>
       )}
       <label className="trade-field">
