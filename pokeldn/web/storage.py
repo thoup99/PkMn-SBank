@@ -114,7 +114,7 @@ class BankStore:
                 raise StorageError("A Bank snapshot failed its integrity check. Restore a verified backup.", 503)
         return state
 
-    def _commit(self, operation, mutate, *, recovery=False):
+    def _commit(self, operation, mutate, *, recovery=False, trade=False):
         with self.locked():
             try:
                 current = self._current()
@@ -128,6 +128,21 @@ class BankStore:
                 if not recovery:
                     raise
                 state = self._state(None)
+            session = state.get("trade_session")
+            if session is not None and not trade:
+                # Lazy import keeps the generic Bank module independent of web session code.
+                from pokeldn.web.trading import SimulatedTrading
+                try:
+                    session = SimulatedTrading._session(state)
+                except StorageError:
+                    if not recovery:
+                        raise
+                    state["trade_session"] = session = None
+                if session and not recovery and session["status"] in {"connecting", "waiting", "exchanging"}:
+                    raise StorageError("Cancel or finish the active simulation before changing Bank data or trainer settings.")
+            if recovery and session:
+                session.update(status="interrupted", invalidated=True, owner=None, version=session["version"] + 1)
+                session["events"].append({"time": time.time(), "message": "Bank recovery invalidated this simulation. Stage a fresh queue."})
             self.revisions.mkdir(exist_ok=True)
             stage = Path(tempfile.mkdtemp(prefix=".pending-", dir=self.root))
             try:

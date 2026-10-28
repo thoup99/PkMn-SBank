@@ -61,7 +61,15 @@ Bank duplicate handling, exports, box organization and snapshot recovery. The
 supported server is **Raspberry Pi 5 with 64-bit Raspberry Pi OS only**; other
 computers and phones are browser clients. See [Pi 5 deployment and test steps](pi5-website.md)
 for the feature-branch checkout, installer, launch commands and recovery checklist.
-Switch trading and 3DS integration have not started.
+Live Switch trading and 3DS integration have not started.
+
+## Phase 4: simulated trading
+
+The Trading page now prepares and stages real Bank records with PKHeX, persists
+manual simulated session progress, and tests disconnect/failure/restart recovery.
+All original Bank records are retained, including after simulated completion.
+See [simulated trading](simulated-trading.md) for the Pi test checklist.
+
 
 Developer tests may run on CI without Pi hardware. `pokeldn.web.serve` is the
 hardware-checked deployment entry point; direct ASGI testing is for development.

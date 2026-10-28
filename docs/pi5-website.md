@@ -7,7 +7,7 @@ Phase 3 adds real Bank imports/exports, persistent 30-slot boxes, moves/swaps,
 box names, receiving-trainer settings, operation history and recoverable snapshots.
 **The only supported website server is a Raspberry Pi 5 running 64-bit Raspberry
 Pi OS.** Phones and computers access its website through a browser on the same LAN.
-Switch trading, ESP32-S3 control, automatic startup, hotspot setup and 3DS integration
+Phase 4 adds [simulated trading](simulated-trading.md). Real Switch trading, ESP32-S3 control, automatic startup, hotspot setup and 3DS integration
 remain later phases. Existing upstream CLI/desktop tools are preserved.
 
 ## 1. Prepare the Pi
@@ -22,7 +22,7 @@ It does not change Wi-Fi, flash firmware or install a desktop app.
 sudo apt update
 sudo apt install -y git
 cd ~
-git clone --branch feature/phase-3-pi-bank https://github.com/thoup99/PkMn-SBank.git PkMn-SBank
+git clone --branch main https://github.com/thoup99/PkMn-SBank.git PkMn-SBank
 cd ~/PkMn-SBank
 bash scripts/setup_web_pi5.sh
 ```
@@ -33,13 +33,13 @@ cloning again (commit or stash unrelated local changes first):
 ```sh
 cd ~/PkMn-SBank
 git fetch origin
-git switch feature/phase-3-pi-bank
+git switch main
 git pull --ff-only
 bash scripts/setup_web_pi5.sh
 ```
 
-The branch includes the website foundation even while earlier changes are waiting
-on `main`. Test this feature branch before merging its PR.
+The website and Bank foundation are now on `main`. Phase updates also go through
+a feature branch, tests and PR review before merging.
 
 The installer creates `.venv-web`, downloads checksum-verified Node 24.22.1 ARM64
 and .NET SDK 10 into `.web-tools`, publishes the self-contained PKHeX helper for
