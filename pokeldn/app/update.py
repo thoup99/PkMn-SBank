@@ -34,8 +34,7 @@ LATEST = os.environ.get("POKELDN_UPDATE_URL",
 TIMEOUT = 5.0
 MAX_BYTES = 1_000_000
 # The archive names .github/workflows/release.yml publishes; tests/test_app_update.py pins them.
-ASSETS = {("darwin", "arm64"): "pokeldn-macos-arm64.zip",
-          ("win32", "x64"): "pokeldn-windows-x64.zip",
+ASSETS = {("win32", "x64"): "pokeldn-windows-x64.zip",
           ("linux", "x64"): "pokeldn-linux-x64.tar.gz"}
 
 

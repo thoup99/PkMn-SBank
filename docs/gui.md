@@ -3,6 +3,11 @@ title: Desktop builds
 ---
 # Desktop builds
 
+> Fork platform note: PkMn-SBank retains Windows/Linux desktop apps. The mobile/macOS
+> sections below document upstream behavior; those standalone apps/builds were removed
+> from this fork. Use the [website](web-development.md) from other devices.
+
+
 The desktop app is the pokeldn interface for macOS, Windows and Linux. A release bundles PKHeX and
 radio firmware for ESP32, ESP32-S3, ESP32-C3 and ESP32-C6; the user supplies `prod.keys`.
 
@@ -33,7 +38,7 @@ the window and maximizes on double-click.
 
 ## Android setup requirements
 
-The [Android app](../examples/android/README.md) is this interface on a phone. The Board page
+The [Android app](https://github.com/Decryptu/pokeldn/blob/main/examples/android/README.md) is this interface on a phone. The Board page
 rereads USB state on plug, unplug, the USB prompt closing and return from Settings. A native-USB
 board (`303a:1001`) opens the app when plugged in.
 
@@ -51,7 +56,7 @@ file picker.
 
 ## iOS setup
 
-The [iOS app](../examples/ios/README.md) is this interface on an iPhone or iPad (AltStore or
+The [iOS app](https://github.com/Decryptu/pokeldn/blob/main/examples/ios/README.md) is this interface on an iPhone or iPad (AltStore or
 SideStore). It reaches the board over Bluetooth: install the Bluetooth wireless firmware from the
 desktop Board page (`pokeldn-radio-ble-c6.bin` for an ESP32-C6, `pokeldn-radio-ble.bin` for a
 classic ESP32); USB only powers it. While the phone holds the board, the board ignores USB: close the

@@ -49,7 +49,7 @@ def test_a_release_github_marks_prerelease_or_draft_is_not_offered():
 
 
 @pytest.mark.parametrize("system, machine, name", [
-    ("darwin", "arm64", "pokeldn-macos-arm64.zip"),
+    ("darwin", "arm64", ""),            # macOS app builds were removed
     ("win32", "AMD64", "pokeldn-windows-x64.zip"),
     ("linux", "x86_64", "pokeldn-linux-x64.tar.gz"),
     ("darwin", "x86_64", ""),           # no Intel Mac build: the release page instead
