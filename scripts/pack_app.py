@@ -4,7 +4,6 @@ import argparse
 import os
 import importlib.util
 import platform
-import plistlib
 import shutil
 import tempfile
 import subprocess
@@ -27,21 +26,9 @@ FIRMWARE_BLE_C6 = ROOT / "gui" / "firmware" / "pokeldn-radio-ble-c6.bin"
 APP_ID = "io.github.decryptu.pokeldn"
 UNICORN = ROOT / "gui" / "unicorn"
 MARKER_UNICORN = "pokeldn-unicorn"
-MAC_ICON = ROOT / "gui" / "AppIcon.icon"
-
-
 def runtime_id() -> str:
     arch = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64"
-    return {"darwin": f"osx-{arch}", "win32": f"win-{arch}"}.get(sys.platform, f"linux-{arch}")
-
-
-def compile_mac_icon(folder: Path) -> Path:
-    # Needs Xcode 26. Assets.car holds the layered icon for macOS 26 and Apple's grid for 12-15; the
-    # .icns is the same grid for whatever reads only CFBundleIconFile (docs/gui.md, The app icon).
-    subprocess.run(["xcrun", "actool", str(MAC_ICON), "--compile", str(folder), "--app-icon", "AppIcon",
-                    "--platform", "macosx", "--minimum-deployment-target", "12.0",
-                    "--output-partial-info-plist", str(folder / "icon.plist")], check=True, stdout=subprocess.DEVNULL)
-    return folder
+    return f"win-{arch}" if sys.platform == "win32" else f"linux-{arch}"
 
 
 def runtime_files() -> list[str]:
@@ -64,11 +51,7 @@ def platform_excludes():
     if sys.platform != "win32":
         excluded += ["serial.tools.list_ports_windows", "serial.serialwin32", "serial.win32",
                      "flet_desktop.win_taskbar", "click._winconsole"]
-    if sys.platform != "darwin":
-        excluded.append("serial.tools.list_ports_osx")
-    else:
-        # East Asian codecs: macOS Python reads and writes UTF-8 whatever the locale.
-        excluded += ["_multibytecodec", *(f"_codecs_{c}" for c in ("cn", "hk", "iso2022", "jp", "kr", "tw"))]
+    excluded.append("serial.tools.list_ports_osx")
     if not sys.platform.startswith("linux"):
         excluded.append("serial.tools.list_ports_linux")
     return excluded
@@ -88,17 +71,6 @@ PLUGIN_PACKAGES = ("trio", "Crypto", "zstandard", "serial", "websockets", "certi
 
 def plugin_stdlib() -> list[str]:
     return [name for name in PLUGIN_STDLIB if importlib.util.find_spec(name) is not None]
-
-
-def strip_local_symbols(app: Path, keep: set[Path]) -> None:
-    """Drops local symbols from the bundle's Mach-O libraries (1 to 2 MB); the exports stay. Never the
-    executable or the PKHeX helper: both carry an archive after their Mach-O image."""
-    for path in app.rglob("*"):
-        if path.is_file() and not path.is_symlink() and path not in keep:
-            with path.open("rb") as f:
-                if f.read(4) not in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"):
-                    continue
-            subprocess.run(["strip", "-x", str(path)], check=True, capture_output=True)
 
 
 def clear_cfg(exe: Path) -> None:
@@ -126,6 +98,8 @@ def pe_checksum(data: bytes, field: int) -> int:
 
 
 def main() -> int:
+    if sys.platform not in ("linux", "win32"):
+        raise SystemExit("Desktop builds support Linux and Windows only; use the website on other platforms.")
     argparse.ArgumentParser(description=__doc__).parse_args()
     firmware = (FIRMWARE, FIRMWARE_S3, FIRMWARE_C3, FIRMWARE_C6, FIRMWARE_PAD, FIRMWARE_PAD_ESP32, FIRMWARE_BLE,
                 FIRMWARE_BLE_C6)
@@ -148,24 +122,12 @@ def main() -> int:
     executable = service / "dist" / ("pokeldn-pkhex.exe" if sys.platform == "win32" else "pokeldn-pkhex")
     with tempfile.TemporaryDirectory(prefix="pokeldn-pack-") as folder:
         stage = Path(folder)
-        mac_icon = compile_mac_icon(Path(tempfile.mkdtemp(dir=folder))) if sys.platform == "darwin" else None
-        icon = mac_icon / "AppIcon.icns" if mac_icon else ROOT / "gui" / "assets" / (
-            "icon.ico" if sys.platform == "win32" else "icon.png")
+        icon = ROOT / "gui/assets" / ("icon.ico" if sys.platform == "win32" else "icon.png")
         for name in runtime_files():
             dest = stage / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, dest)
         dependencies = stage / "dependencies"
-        if sys.platform == "darwin":
-            import serial
-            shutil.copytree(Path(serial.__file__).parent, dependencies / "serial",
-                            ignore=shutil.ignore_patterns("__pycache__"))
-            ports = dependencies / "serial/tools/list_ports_osx.py"
-            source = ports.read_text().replace("import ctypes\n", "import ctypes\nimport ctypes.util\n")
-            for framework in ("IOKit", "CoreFoundation"):
-                source = source.replace(f"'/System/Library/Frameworks/{framework}.framework/{framework}'",
-                                        f"ctypes.util.find_library('{framework}')")
-            ports.write_text(source)
         data = [(stage / name, name) for name in
                 ("bin", "pokeldn", "vendor/LDN/ldn", "docs", "config", "gui/assets")]
         data += [(stage / "gui/guide.md", "gui"), (executable, "services/pkhex/dist")]
@@ -173,18 +135,17 @@ def main() -> int:
         data += [(path, "gui/firmware") for path in firmware]
         # scripts/build_unicorn.py's ARM-only library, not the wheel's; unicorn looks in its own lib/.
         data += [(path, "unicorn/lib") for path in (UNICORN / "lib").iterdir()]
-        args = [sys.executable, str(ROOT / "scripts/pack_flet.py"), "pack", str(ROOT / "gui" / "main.py"),
+        args = [sys.executable, "-m", "flet_cli.cli", "pack", str(ROOT / "gui" / "main.py"),
                 "--name", "pokeldn", "-y",
                 "--distpath", str(ROOT / "dist"), "--product-name", "pokeldn",
                 "--product-version", __version__, "--file-version", f"{__version__}.0",
                 "--bundle-id", APP_ID, "--add-data",
                 *[f"{src}{os.pathsep}{dest}" for src, dest in data]]
-        if sys.platform in ("darwin", "win32"):
+        if sys.platform == "win32":
             args += ["--icon", str(icon)]
         scripts = sorted(p.stem for p in (stage / "bin").glob("*.py"))
         console = ["--console", "--hide-console=hide-early"] if sys.platform == "win32" else []
-        # A single file unpacks all of itself at every launch and every run (docs/gui.md). Flet's own
-        # --onedir refuses macOS; this later PyInstaller flag wins over the --onefile Flet passes.
+        # Keep the existing one-folder layout for Windows/Linux updates.
         onedir = ["--onedir"]
         for option in (f"--paths={dependencies}", f"--paths={ROOT}", f"--paths={ROOT / 'bin'}", f"--paths={ROOT / 'vendor' / 'LDN'}",
                        *console, *onedir,
@@ -196,40 +157,10 @@ def main() -> int:
                        "--collect-submodules=ldn"):
             args.append(f"--pyinstaller-build-args={option}")
         env = dict(os.environ, FLET_VIEW_PATH=str(client))
-        if mac_icon:
-            env["POKELDN_ICON_CAR"] = str(mac_icon / "Assets.car")
         result = subprocess.run(args, cwd=stage, env=env).returncode
-        expected = ROOT / "dist" / (("pokeldn.app" if sys.platform == "darwin" else "pokeldn"))
+        expected = ROOT / "dist" / "pokeldn"
         if result == 0 and not expected.exists():
             raise SystemExit("The packer produced no desktop application.")
-        if result == 0 and sys.platform == "darwin":
-            info_path = expected / "Contents/Info.plist"
-            with info_path.open("rb") as source:
-                info = plistlib.load(source)
-            # The Flet viewer is the window; a one-folder Python process never checks in with the Dock and
-            # bounces there forever (docs/gui.md). The single-file bootloader ran as background-only.
-            info.update(CFBundleShortVersionString=__version__, CFBundleVersion=__version__, LSBackgroundOnly=True)
-            # macOS kills a process that opens Bluetooth without this key: the controller service
-            # (pokeldn.pad.service) runs as this app's child.
-            info["NSBluetoothAlwaysUsageDescription"] = "pokeldn presses buttons on your Switch through the controller board."
-            shutil.copy2(mac_icon / "Assets.car", expected / "Contents/Resources/Assets.car")
-            info["CFBundleIconName"] = "AppIcon"
-            with info_path.open("wb") as dest:
-                plistlib.dump(info, dest)
-            strip_local_symbols(expected, {expected / "Contents/MacOS/pokeldn",
-                                           expected / "Contents/Frameworks/services/pkhex/dist" / executable.name})
-            # macOS 26 gives a background process signed as the bundle's main executable a passive Bluetooth
-            # scan with no discoveries; a bare-signed copy gets an active one (docs/gui.md, The controller).
-            # The bootloader finds its files in _internal beside it.
-            helpers = expected / "Contents/Helpers"
-            helpers.mkdir(exist_ok=True)
-            helper = helpers / "pokeldn-bluetooth"
-            shutil.copy2(expected / "Contents/MacOS/pokeldn", helper)
-            (helpers / "_internal").symlink_to("../Frameworks")
-            subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(expected)], check=True)
-            subprocess.run(["codesign", "--force", "--sign", "-", "--identifier", "pokeldn-bluetooth", str(helper)],
-                           check=True)
-            subprocess.run(["codesign", "--force", "--sign", "-", str(expected)], check=True)
         if result == 0 and sys.platform == "win32":
             clear_cfg(expected / "pokeldn.exe")
         if result == 0 and sys.platform.startswith("linux"):
