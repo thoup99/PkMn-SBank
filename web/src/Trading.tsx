@@ -55,6 +55,7 @@ export default function Trading({
     const data = await api("/api/trade/session");
     setGames(data.games);
     setSession(data.session);
+    if (data.session?.invalidated) { setSelected([]); setPreview(null); }
     return data;
   };
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function Trading({
         setSession(data.session);
         setLoaded(true);
         if (
-          data.session &&
+          data.session && !data.session.invalidated &&
           [
             "ready",
             ...running,
@@ -75,7 +76,7 @@ export default function Trading({
             "interrupted",
           ].includes(data.session.status)
         ) {
-          setSelected(data.session.queue.map((p: QueueItem) => p.id));
+          setSelected(data.session.queue.map((p: QueueItem) => p.id).filter((id: string) => bank.some(p => p.id === id)));
           setGame(data.session.game);
         }
       })
@@ -95,13 +96,15 @@ export default function Trading({
     const timer = window.setInterval(() => {
       api("/api/trade/session")
         .then((data) => {
-          if (live)
+          if (live) {
+            if (data.session?.invalidated) { setSelected([]); setPreview(null); }
             setSession((current) =>
               current?.id === data.session?.id &&
               current!.version > data.session.version
                 ? current
                 : data.session,
             );
+          }
         })
         .catch((err) => {
           if (live) setError(err.message);
@@ -245,6 +248,7 @@ export default function Trading({
             ))}
         </div>
         <div className="trade-actions">
+          <button disabled={busy || active || !selected.length} onClick={()=>{setSelected([]);setPreview(null);}}>Clear selection</button>
           <button
             disabled={
               !ready ||
