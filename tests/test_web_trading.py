@@ -26,7 +26,7 @@ def setup(tmp_path, imported, monkeypatch):
     monkeypatch.setattr(pokemon.SERVICE,'check_bytes',lambda game,data:{'legal':True,'format':'PK8'})
     store=BankStore(tmp_path);store.set_trainer(TRAINER)
     store.import_file('one.pk8',b'one');store.import_file('two.pk8',b'two')
-    ids=[p['id'] for b in store.boxes() for p in b['slots'] if p]
+    ids=[p['id'] for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p]
     return store,SimulatedTrading(store),ids
 
 
@@ -48,7 +48,7 @@ def advance_until_stopped(manager,session):
 
 
 def assert_originals(store,before):
-    assert {p['id']:store.export(p['id'])[1] for b in store.boxes() for p in b['slots'] if p}==before
+    assert {p['id']:store.export(p['id'])[1] for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p}==before
 
 
 def test_preview_refusals_and_queue_limits_without_mutating_bank(setup):
@@ -109,7 +109,7 @@ def test_restart_requires_explicit_resume_and_never_auto_confirms(setup):
     resumed=act(restarted,interrupted,'resume')
     assert resumed['status']=='connecting'
     assert advance_until_stopped(restarted,resumed)['completed']==2
-    assert len([p for b in store.boxes() for p in b['slots'] if p])==2
+    assert len([p for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p])==2
 
 
 def test_stale_preview_and_ready_queue_revalidate_trainer_before_start(setup):
@@ -148,7 +148,7 @@ def test_active_bank_changes_blocked_and_recovery_invalidates_session(setup):
     session=manager.current()['session']
     assert session['status']=='interrupted' and session['invalidated']
     with pytest.raises(StorageError,match='fresh queue'):act(manager,session,'resume')
-    assert len([p for b in store.boxes() for p in b['slots'] if p])==2
+    assert len([p for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p])==2
 
 
 def test_http_contract_csrf_versioning_and_demo_isolation(setup):
@@ -182,7 +182,7 @@ def test_real_pkhex_conversion_refusal_and_simulation_leave_original_bytes(tmp_p
             bank._keep('swsh',base64.b64decode(reply['data']),reply,folder,'test fixture')
         state['boxes'][0]['slots'][:2]=[e.id for e in bank.entries(folder)]
     store._commit('Seed validated test records',deposit)
-    entries=[p for b in store.boxes() for p in b['slots'] if p]
+    entries=[p for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p]
     ids=[p['id'] for p in entries]
     before={id:store.export(id)[1] for id in ids}
     store.set_trainer({**TRAINER,'ot':'MISTY'})
@@ -216,7 +216,7 @@ def test_recovery_can_discard_damaged_session_metadata_without_losing_bank(setup
     with pytest.raises(StorageError,match='metadata'):manager.current()
     store.restore(backup)
     assert manager.current()['session'] is None
-    assert len([p for b in store.boxes() for p in b['slots'] if p])==2
+    assert len([p for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p])==2
 
 
 def test_failed_confirmation_write_retains_prior_counter_and_all_records(setup,monkeypatch):

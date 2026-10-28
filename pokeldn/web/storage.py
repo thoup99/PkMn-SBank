@@ -18,6 +18,7 @@ import zipfile
 from pathlib import Path
 
 from pokeldn.app import bank
+from pokeldn.web.dummy import reserve_box, is_dummy
 
 GAMES = {"frlg": "FireRed / LeafGreen", "rse": "Ruby / Sapphire / Emerald", "lgpe": "Let's Go",
          "swsh": "Sword / Shield", "bdsp": "Brilliant Diamond / Shining Pearl",
@@ -190,8 +191,11 @@ class BankStore:
             revision = self._current()
             state = self._state(revision)
             entries = {e.id: self._pokemon(e) for e in bank.entries(revision / "Bank")} if revision else {}
-            return [{**box, "slots": [entries.get(key) if key else None for key in box["slots"]]}
-                    for box in state["boxes"]]
+            boxes = [{**box, "id": box["id"] if box["id"] < 5 else box["id"] + 1,
+                      "kind": "bank", "slots": [entries.get(key) if key else None for key in box["slots"]]}
+                     for box in state["boxes"]]
+            boxes.insert(4, reserve_box())
+            return boxes
 
     def settings(self):
         with self.locked():
@@ -225,6 +229,9 @@ class BankStore:
         return self._commit(f"Imported {name}", apply)
 
     def move(self, entry_id, box_id, slot, expected):
+        if is_dummy(entry_id) or box_id == 5:
+            raise StorageError("The Pikachu reserve is replenished automatically and cannot hold Bank records.")
+        box_id = box_id if box_id < 5 else box_id - 1
         def apply(folder, state):
             source = next(((b, i) for b in state["boxes"] for i, key in enumerate(b["slots"])
                            if key == entry_id), None)
@@ -238,6 +245,9 @@ class BankStore:
         self._commit("Moved Pokémon between slots", apply)
 
     def rename(self, box_id, name):
+        if box_id == 5:
+            raise StorageError("The Pikachu reserve cannot be renamed.")
+        box_id = box_id if box_id < 5 else box_id - 1
         def apply(folder, state):
             box = next((b for b in state["boxes"] if b["id"] == box_id), None)
             if not box:
@@ -348,3 +358,35 @@ class BankStore:
                 shutil.copytree(extracted / "Bank", folder)
                 state.update(boxes=recovered["boxes"], trainer=recovered["trainer"])
             self._commit("Recovered downloaded backup ZIP", apply, recovery=True)
+
+    def receive_record(self, game, content, info, receipt, *, sent_id=None, sent_sha256=None):
+        """Atomically route a confirmed receipt to normal boxes 1–4, never the reserve.
+        The caller must keep raw received bytes durably until this commit succeeds.
+        Receipt IDs make recovery/replayed confirmations idempotent.
+        """
+        def apply(folder,state):
+            sha=hashlib.sha256(content).hexdigest()
+            prior=state.setdefault("received_receipts",{}).get(receipt)
+            if prior:
+                if prior['sha256']!=sha:raise StorageError("Receipt conflicts with previously committed bytes.")
+                return prior['id']
+            outgoing=None if not sent_id or is_dummy(sent_id) else bank.find(sent_id,folder=folder)
+            if sent_id and not is_dummy(sent_id):
+                if outgoing is None or hashlib.sha256(bank.data(outgoing)).hexdigest()!=sent_sha256:
+                    raise StorageError("The outgoing Bank record changed; retain the receipt for recovery.")
+            existing=next((e for e in bank.entries(folder) if hashlib.sha256(bank.data(e)).hexdigest()==sha),None)
+            # Make space from the outgoing normal slot only in this uncommitted snapshot.
+            if outgoing and (existing is None or existing.id!=outgoing.id):
+                bank.remove(outgoing.id,folder=folder)
+                for box in state['boxes']:
+                    box['slots']=[None if key==outgoing.id else key for key in box['slots']]
+            target=next((b for b in state['boxes'][:4] if None in b['slots']),None)
+            already_normal=existing and any(existing.id in b['slots'] for b in state['boxes'][:4])
+            if not target and not already_normal:raise StorageError("Boxes 1–4 are full. The received file must remain in recovery storage.")
+            entry=existing or bank._keep(game,content,info,folder,'Confirmed USB trade')
+            if not already_normal:
+                for box in state['boxes']:box['slots']=[None if key==entry.id else key for key in box['slots']]
+                target['slots'][target['slots'].index(None)]=entry.id
+            state['received_receipts'][receipt]={'id':entry.id,'sha256':sha,'time':time.time()}
+            return entry.id
+        return self._commit('Received Pokémon into normal boxes',apply,trade=True)

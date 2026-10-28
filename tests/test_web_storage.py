@@ -40,16 +40,16 @@ def request_import(client, data=b'validated record', name='pikachu.pk8'):
 
 def test_api_import_duplicate_export_move_restart_and_restore(tmp_path, imported):
     client = TestClient(create_app(data_dir=tmp_path))
-    assert not any(p for b in client.get('/api/boxes').json() for p in b['slots'])
+    assert not any(p for b in client.get('/api/boxes').json()[:4] for p in b['slots'])
     assert request_import(client).status_code == 422  # a receiving trainer is mandatory
     assert client.put('/api/settings/trainer', json=TRAINER, headers=HEADERS).status_code == 200
     trainer_revision = client.get('/api/backups').json()[0]['id']
     result = request_import(client)
     assert result.status_code == 200 and result.json()['pokemon'][0]['state'] == 'banked'
-    entry = client.get('/api/boxes').json()[0]['slots'][0]
+    entry = client.get('/api/boxes').json()[:4][0]['slots'][0]
     assert entry['trainer'] == 'ASH' and entry['level'] == 28 and entry['nature'] == 'Jolly'
     assert request_import(client).json()['pokemon'][0]['state'] == 'already'
-    assert sum(p is not None for b in client.get('/api/boxes').json() for p in b['slots']) == 1
+    assert sum(p is not None for b in client.get('/api/boxes').json()[:4] for p in b['slots']) == 1
     assert client.get(f"/api/pokemon/{entry['id']}/export").content == b'validated record'
     demo = TestClient(create_app(data_dir=tmp_path, mode="demo"))
     assert demo.get(f"/api/pokemon/{entry['id']}/export").status_code == 404
@@ -64,7 +64,7 @@ def test_api_import_duplicate_export_move_restart_and_restore(tmp_path, imported
         assert 'state.json' in z.namelist() and 'Bank/.imported' in z.namelist()
         assert any(n.endswith('.pk8') for n in z.namelist())
     assert restarted.post(f'/api/backups/{trainer_revision}/restore', headers=HEADERS).status_code == 200
-    assert not any(p for b in restarted.get('/api/boxes').json() for p in b['slots'])
+    assert not any(p for b in restarted.get('/api/boxes').json()[:4] for p in b['slots'])
     assert len(restarted.get('/api/backups').json()) == 6
     assert restarted.get('/api/history').json()['entries'][0]['action'].startswith('Restored backup')
 
@@ -95,7 +95,7 @@ def test_disk_failure_before_pointer_switch_keeps_previous_snapshot(tmp_path, im
     with pytest.raises(OSError):
         store.import_file('a.pk8', b'first')
     assert (tmp_path/'CURRENT').read_bytes() == before
-    assert not any(p for b in BankStore(tmp_path).boxes() for p in b['slots'])
+    assert not any(p for b in BankStore(tmp_path).boxes() if b.get('kind') != 'dummy' for p in b['slots'])
     assert all(b['current'] == (b['id'] == before.decode().strip()) for b in store.backups())
 
 
@@ -107,7 +107,7 @@ def test_tamper_detection_and_verified_snapshot_restore(tmp_path, imported):
     with pytest.raises(StorageError, match='integrity'):
         store.boxes()
     store.restore(clean)
-    assert not any(p for b in store.boxes() for p in b['slots'])
+    assert not any(p for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'])
 
 
 def test_concurrent_duplicate_imports_and_optimistic_slot_conflict(tmp_path, imported):
@@ -154,7 +154,7 @@ def test_real_pkhex_save_import_and_export(tmp_path):
     assert source==original
     states=[p['state'] for p in result['pokemon']]
     assert states.count('banked')==2 and states.count('refused')==1
-    entries=[p for b in store.boxes() for p in b['slots'] if p]
+    entries=[p for b in store.boxes() if b.get('kind') != 'dummy' for p in b['slots'] if p]
     assert len(entries)==2 and {p['species'] for p in entries}=={'Patrat','Lillipup'}
     for p in entries:
         name,data=store.export(p['id'])
