@@ -2,11 +2,11 @@
 
 **A self-hosted Pokémon transfer bridge — move Pokémon between generations, not into permanent storage.**
 
-> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the PkMn-SBank web interface, Raspberry Pi appliance setup, and 3DS companion are planned work, **not yet released features**.
+> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the website now has real Bank imports/exports, persistent boxes, and snapshot recovery for Raspberry Pi 5 testing. Website trading integration, appliance startup/hotspot setup, and the 3DS companion are **not yet released features**.
 
 ## What we're building
 
-PkMn-SBank (Pokémon Super Bank) aims to make it quick and convenient to move Pokémon between supported games and generations. A small Linux computer hosts a local website with familiar Pokémon boxes, while the existing pokeldn trading protocols connect to unmodified Nintendo Switch games. A separate, future homebrew app will enable save-backed transfers on custom-firmware Nintendo 3DS consoles.
+PkMn-SBank (Pokémon Super Bank) aims to make it quick and convenient to move Pokémon between supported games and generations. A Raspberry Pi 5 hosts a local website with familiar Pokémon boxes, while the existing pokeldn trading protocols connect to unmodified Nintendo Switch games. A separate, future homebrew app will enable save-backed transfers on custom-firmware Nintendo 3DS consoles.
 
 The boxes are primarily a **temporary transfer and recovery area**, not a promise of long-term cloud storage. We intend to preserve records until a transfer finishes safely and provide explicit backups and recovery paths.
 
@@ -17,7 +17,7 @@ Phone / laptop browser
         |
     Wi-Fi / LAN
         |
-Raspberry Pi 5 (or compatible 64-bit Linux SBC)
+Raspberry Pi 5 (64-bit Raspberry Pi OS; the only supported website host)
   - Self-hosted web interface and API
   - pokeldn game/trade engine and Pokémon Bank
   - PKHeX.Core compatibility and conversion
@@ -61,13 +61,13 @@ The intended appliance can host a local Wi-Fi hotspot for offline use, with the 
 | Component | State |
 | --- | --- |
 | Original pokeldn trading engines, protocols, CLI, Bank, and ESP32 firmware | **Inherited from upstream** |
-| Browser-based Pokémon boxes and trading UI | **Planned** |
+| Browser-based boxes, imports/exports and backups | **Phase 3 implemented for Pi 5 testing** — real Bank storage; trading deferred |
 | Raspberry Pi boot service, hotspot, and deployment | **Planned** |
 | Real Switch trades launched from our website | **Planned** (upstream has existing trading tools) |
 | CFW 3DS homebrew app and save transfers | **Planned**, after website v1 |
 | Backward-generation / destructive conversion | **Future research** |
 
-Until a PkMn-SBank web release exists, refer to the original pokeldn documentation for upstream setup and CLI usage.
+Test the website on your Pi using [Raspberry Pi 5 deployment steps](docs/pi5-website.md). The website server targets Raspberry Pi 5 only; phones/computers connect as browser clients. Refer to the preserved pokeldn documentation for upstream setup and CLI usage.
 
 ## Repositories and documentation
 

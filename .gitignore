@@ -102,3 +102,11 @@ EVAL_RUN_NOTES.txt
 /gui/client/
 # The ARM-only Unicorn scripts/build_unicorn.py builds, with its source.
 /gui/unicorn/
+
+# Website source and reproducible build outputs.
+!/web/
+/web/node_modules/
+/web/dist/
+/web/*.tsbuildinfo
+/.web-tools/
+/.venv-web/
