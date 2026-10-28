@@ -626,7 +626,7 @@ The ELEGOO board (ESP32-D0WD-V3 rev 3.1, CP2102, 921600 baud) trades with retail
 in every title, as station and access point, and delivers FireRed and Sword Mystery Gifts. The XIAO
 ESP32C3, ESP32C6 (ceramic antenna) and ESP32S3 complete FireRed trades in both roles and Sword host
 trades, the C6 also Scarlet host trades; an ESP32-S3 on Windows completes a FireRed joiner trade
-([PR 2](https://github.com/Decryptu/pokeldn/pull/2)). The [Android app](../examples/android/README.md)
+([PR 2](https://github.com/Decryptu/pokeldn/pull/2)). The [Android app](https://github.com/Decryptu/pokeldn/blob/main/examples/android/README.md)
 hosts FireRed through a XIAO ESP32C6 at 51.1 parent slots a second once its Python threads are pinned
 to one performance core.
 
