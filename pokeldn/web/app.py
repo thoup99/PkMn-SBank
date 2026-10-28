@@ -172,6 +172,23 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     def settings():
         return {"trainer": None} if mode == "demo" else store.settings()
 
+    @app.get("/api/settings/keys")
+    def key_status():
+        from pokeldn.web.keys import status
+        return {"installed": False} if mode == "demo" else status()
+
+    @app.put("/api/settings/keys")
+    async def upload_keys(request: Request):
+        from pokeldn.web.keys import LIMIT
+        if request.headers.get("content-type", "").split(";")[0] != "application/octet-stream":
+            raise HTTPException(415, "Upload prod.keys as application/octet-stream.")
+        content = bytearray()
+        async for chunk in request.stream():
+            if len(content) + len(chunk) > LIMIT:
+                raise HTTPException(413, "The keys upload limit is 256 KiB.")
+            content.extend(chunk)
+        return await run_in_threadpool(usb.install_keys, bytes(content))
+
     @app.put("/api/settings/trainer")
     def trainer(value: Trainer):
         if value.language == 6 or value.ot.strip() != value.ot or any(ord(c) < 32 for c in value.ot):
