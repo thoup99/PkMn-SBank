@@ -160,7 +160,7 @@ export function MoveTools({
           value={boxId}
           onChange={(e) => setBoxId(Number(e.target.value))}
         >
-          {boxes.map((b) => (
+          {boxes.filter(b => b.kind !== "dummy").map((b) => (
             <option value={b.id} key={b.id}>
               {b.name}
             </option>

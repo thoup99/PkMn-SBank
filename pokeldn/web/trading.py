@@ -14,6 +14,7 @@ import uuid
 from pokeldn import pokemon
 from pokeldn.app import bank
 from pokeldn.web.storage import GAMES, StorageError
+from pokeldn.web.dummy import DummyOffers, is_dummy
 
 TARGETS = {key: name for key, name in GAMES.items() if key != "rse"}
 ACTIVE = {"connecting", "waiting", "exchanging"}
@@ -33,6 +34,7 @@ class SimulatedTrading:
     def __init__(self, store):
         self.store = store
         self.owner = uuid.uuid4().hex
+        self.dummies = DummyOffers(store.root)
 
     @staticmethod
     def _session(state):
@@ -88,16 +90,19 @@ class SimulatedTrading:
             raise StorageError("Set your receiving trainer in Settings first.", 422)
         records, sources = [], []
         for entry_id in entry_ids:
-            entry = bank.find(entry_id, folder=folder)
-            if entry is None:
+            dummy = is_dummy(entry_id)
+            entry = None if dummy else bank.find(entry_id, folder=folder)
+            if not dummy and entry is None:
                 raise StorageError("A staged Pokémon is no longer in the Bank. Refresh and select it again.", 409)
-            raw = bank.data(entry)
-            source_hash = hashlib.sha256(raw).hexdigest()
-            sources.append({"id": entry_id, "sha256": source_hash, "game": entry.game, "tracker": str(entry.tracker)})
-            result = {"id": entry.id, "species": self.store._pokemon(entry)["species"],
-                      "source_game": GAMES[entry.game], "compatible": False, "reason": "", "warnings": []}
+            result = {"id": entry_id, "species": "Pikachu" if dummy else self.store._pokemon(entry)["species"],
+                      "source_game": "Pikachu reserve" if dummy else GAMES[entry.game], "dummy": dummy,
+                      "compatible": False, "reason": "", "warnings": []}
             try:
-                reply = pokemon.SERVICE.move(entry.game, game, raw, entry.tracker, trainer)
+                reply = self.dummies.get(game, trainer) if dummy else pokemon.SERVICE.move(
+                    entry.game, game, bank.data(entry), entry.tracker, trainer)
+                raw = base64.b64decode(reply['data']) if dummy else bank.data(entry)
+                sources.append({"id":entry_id,"sha256":hashlib.sha256(raw).hexdigest(),
+                                "game":game if dummy else entry.game,"tracker":"0" if dummy else str(entry.tracker)})
                 prepared = base64.b64decode(reply["data"], validate=True)
                 checked = pokemon.SERVICE.check_bytes(game, prepared)
                 if not reply.get("legal") or not checked.get("legal"):
@@ -107,7 +112,9 @@ class SimulatedTrading:
                 home = reply.get("home_tracker", "")
                 if home in pokemon.HOME_TRACKER_WARNINGS:
                     result["warnings"].append(pokemon.HOME_TRACKER_WARNINGS[home])
-                if entry.game != game:
+                if dummy:
+                    result["warnings"].append("Reusable Pikachu: the reserve stays full; incoming records are routed to boxes 1–4.")
+                if not dummy and entry.game != game:
                     result["warnings"].append("Prepared for the selected game using the Bank's conversion rules; the original record stays unchanged.")
             except pokemon.BuilderError as error:
                 result["reason"] = str(error)

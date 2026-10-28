@@ -13,6 +13,7 @@ from pokeldn.web.storage import BankStore, StorageError
 from pokeldn.pokemon import BuilderError, _command
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pokeldn.web.dummy import reserve_box
 
 
 class Pokemon(BaseModel):
@@ -29,9 +30,11 @@ class Pokemon(BaseModel):
     summary: str = ""
     legal: bool | None = None
     home_tracker: str = ""
+    dummy: bool = False
 
 
 class Box(BaseModel):
+    kind: str = "bank"
     id: int
     name: str
     slots: list[Pokemon | None]
@@ -146,7 +149,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
 
     @app.get("/api/boxes", response_model=list[Box])
     def boxes():
-        return demo_boxes() if mode == "demo" else store.boxes()
+        return [*demo_boxes(), Box(**reserve_box())] if mode == "demo" else store.boxes()
 
     @app.get("/api/boxes/{box_id}", response_model=Box)
     def box(box_id: int):

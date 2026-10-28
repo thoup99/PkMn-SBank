@@ -12,8 +12,10 @@ export interface Pokemon {
   summary?: string;
   legal?: boolean | null;
   home_tracker?: string;
+  dummy?: boolean;
 }
 export interface Box {
+  kind?: "bank" | "dummy";
   id: number;
   name: string;
   slots: (Pokemon | null)[];

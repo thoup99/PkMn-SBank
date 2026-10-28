@@ -78,7 +78,7 @@ There is no board/key requirement for this phase. Stop with **Ctrl+C**.
 
 ## 3. Test storage
 
-1. The site should start with four **empty** boxes and the **Your Bank** badge.
+1. The site starts with four normal boxes, a full **Pikachu reserve** in box 5, and the **Your Bank** badge.
 2. Open **Settings**, enter the receiving trainer name, underlying 16-bit TID/SID,
    language and gender, then choose **Save receiving trainer**. The TID/SID are not
    the six-digit display ID used by some games. These identify the receiving
@@ -184,3 +184,15 @@ an existing store fails closed instead of pretending the Bank is empty.
 To update this test branch, stop the server, run `git pull --ff-only`, rerun
 `bash scripts/setup_web_pi5.sh`, then restart. Download a backup before updates.
 Automatic startup and appliance installation will be added in the packaging phase.
+
+## Pikachu reserve (box 5)
+
+Box 5 always displays 30 reusable Pikachu offers. These are separate from your real
+Bank records: they cannot be moved, renamed, or exported as Bank Pokémon. The app
+automatically prepares a valid Pikachu for the chosen game with PKHeX and caches
+it locally; you do not need to generate or import an outgoing Pokémon yourself.
+Set your receiving trainer, then choose a reserve Pikachu on Trading. Simulation
+keeps originals unchanged. Real confirmed receipts are routed to normal boxes
+1–4, never into the reserve. If those 120 normal slots are full, make room before
+starting a deposit. Received bytes must remain in recovery storage if committing
+them fails. Existing overflow boxes are retained as boxes 6 and later.
