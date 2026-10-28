@@ -2,13 +2,16 @@ export interface Pokemon {
   id: string;
   species: string;
   dex: number;
-  level: number;
+  level: number | null;
   types: string[];
-  nature: string;
-  ability: string;
+  nature: string | null;
+  ability: string | null;
   game: string;
   shiny: boolean;
-  trainer: string;
+  trainer: string | null;
+  summary?: string;
+  legal?: boolean | null;
+  home_tracker?: string;
 }
 export interface Box {
   id: number;
@@ -28,6 +31,6 @@ export function matches(p: Pokemon, query: string, type: string) {
       `${p.species} ${p.dex} ${p.game} ${p.nature} ${p.ability}`
         .toLowerCase()
         .includes(query.trim().toLowerCase())) &&
-    (!type || p.types.includes(type))
+    (!type || p.types.includes(type) || p.game === type)
   );
 }

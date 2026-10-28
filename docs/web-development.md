@@ -32,8 +32,8 @@ in these phases. The companion repository stays unchanged.
 
 ### Run the website locally
 
-Node.js 22.12+ (or 24 LTS) is needed to build the frontend. The API demo does not
-need .NET, Switch keys, a board, Flet, or the upstream Python dependencies.
+Node.js 22.12+ (or 24 LTS) is needed to build the frontend. The API needs the built PKHeX helper for real imports. The read-only demo does not
+need .NET, Switch keys, a board, Flet, or upstream protocol dependencies.
 
 ```sh
 python -m pip install -r requirements-web.txt
@@ -45,7 +45,7 @@ npm run dev
 In another terminal, from the repository root:
 
 ```sh
-python -m uvicorn pokeldn.web.app:app --host 0.0.0.0 --port 8000
+PKMN_SBANK_MODE=demo python -m uvicorn pokeldn.web.app:app --host 127.0.0.1 --port 8000
 ```
 
 Open `http://localhost:5173` or `http://<host-LAN-IP>:5173` on a phone.
@@ -54,31 +54,24 @@ The Dashboard, Boxes, Trading, History, and Settings pages use read-only synthet
 data. Search and filters apply to the current box without moving slot positions.
 Preferences last for the page session. Trading is explicitly unavailable.
 
-### Serve on a Raspberry Pi 5
+## Phase 3: real Bank storage on Raspberry Pi 5
 
-Use a 64-bit Raspberry Pi OS / Linux installation and the same Python/Node build
-steps. Build once and serve everything from FastAPI (Node is not needed at runtime):
+The website now defaults to the persistent Bank, with validated imports, original
+Bank duplicate handling, exports, box organization and snapshot recovery. The
+supported server is **Raspberry Pi 5 with 64-bit Raspberry Pi OS only**; other
+computers and phones are browser clients. See [Pi 5 deployment and test steps](pi5-website.md)
+for the feature-branch checkout, installer, launch commands and recovery checklist.
+Switch trading and 3DS integration have not started.
 
-```sh
-cd web
-npm ci
-npm run build
-cd ..
-python -m uvicorn pokeldn.web.app:app --host 0.0.0.0 --port 8000
-```
-
-Open `http://<pi-LAN-IP>:8000`. The API and static frontend share one origin; no
-CORS configuration is required. `PKMN_SBANK_WEB_DIST` can override the build folder.
-Restart the API after building. This is a LAN development preview: no login,
-Internet exposure, boot service, hotspot, hardware control, or real persistence is
-provided. These belong to later milestones. Do not use the Vite development
-server as the appliance's production server.
+Developer tests may run on CI without Pi hardware. `pokeldn.web.serve` is the
+hardware-checked deployment entry point; direct ASGI testing is for development.
+Set `PKMN_SBANK_MODE=demo` to use the read-only sample mode from Phase 2.
 
 ### Website checks
 
 ```sh
 python -m pip install -r requirements-web.txt pytest==9.1.1 httpx==0.28.1
-python -m pytest --confcutdir=tests tests/test_web.py -q
+python -m pytest --confcutdir=tests tests/test_web.py tests/test_web_storage.py -q
 cd web
 npm ci
 npm test

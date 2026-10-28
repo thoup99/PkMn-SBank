@@ -138,6 +138,7 @@ def _keep(game: str, content: bytes, info: dict, folder: Path, origin: str, bank
     path.write_bytes(content)
     _write_meta(path, {
         "game": game, "species": info.get("species", ""), "species_id": int(info.get("species_id") or 0),
+        "display": {key: info.get(key) for key in ("level", "nature", "ability", "ot", "form", "nickname")},
         "shiny": bool(info.get("shiny")), "summary": summary(info), "legal": bool(info.get("legal")),
         # HOME gives each Pokemon a tracker when it enters; a string, since JSON readers lose 64-bit precision.
         "tracker": str(int(info.get("tracker") or 0) or random.randrange(1, 1 << 63)), "created": time.time(),

@@ -1,7 +1,14 @@
-"""Read-only demo API and same-origin production frontend for PkMn-SBank."""
+"""Raspberry Pi 5 website API; no Switch sessions or 3DS integration."""
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Query
+from fastapi.responses import Response, FileResponse, JSONResponse
+from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
+from urllib.parse import urlsplit
+from pydantic import Field
+from pokeldn.web.storage import BankStore, StorageError
+from pokeldn.pokemon import BuilderError, _command
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -10,13 +17,16 @@ class Pokemon(BaseModel):
     id: str
     species: str
     dex: int
-    level: int
+    level: int | None
     types: list[str]
-    nature: str
-    ability: str
+    nature: str | None
+    ability: str | None
     game: str
     shiny: bool = False
-    trainer: str = "DEMO"
+    trainer: str | None = "DEMO"
+    summary: str = ""
+    legal: bool | None = None
+    home_tracker: str = ""
 
 
 class Box(BaseModel):
@@ -52,26 +62,158 @@ def demo_boxes() -> list[Box]:
     return boxes
 
 
-def create_app(frontend_dir: Path | None = None) -> FastAPI:
-    app = FastAPI(title="PkMn-SBank", version="0.1.0", description="Read-only website demo; no hardware control.")
+class Trainer(BaseModel):
+    ot: str = Field(min_length=1, max_length=12)
+    tid: int = Field(ge=0, le=65535)
+    sid: int = Field(ge=0, le=65535)
+    language: int = Field(default=2, ge=1, le=10)
+    gender: int = Field(default=0, ge=0, le=1)
+
+
+class Move(BaseModel):
+    box_id: int = Field(ge=1)
+    slot: int = Field(ge=0, le=29)
+    expected: str | None = None
+
+
+class BoxName(BaseModel):
+    name: str = Field(min_length=1, max_length=32)
+
+
+def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None,
+               mode: str | None = None) -> FastAPI:
+    mode = mode or os.environ.get("PKMN_SBANK_MODE", "bank")
+    if mode not in ("bank", "demo"):
+        raise ValueError("PKMN_SBANK_MODE must be bank or demo")
+    root = data_dir or Path(os.environ.get("POKELDN_DATA", str(Path.home() / ".local/share/pkmn-sbank"))) / "web-bank"
+    store = BankStore(root)
+    from pokeldn.app.sprites import SpriteCache
+    sprites = SpriteCache(folder=root / "sprites")
+    app = FastAPI(title="PkMn-SBank", version="0.2.0", description="Pi 5 Bank storage; hardware control comes later.")
+
+    @app.exception_handler(StorageError)
+    async def storage_error(request, error):
+        return JSONResponse(status_code=error.status, content={"detail": str(error)})
+
+    @app.exception_handler(BuilderError)
+    async def builder_error(request, error):
+        return JSONResponse(status_code=422, content={"detail": str(error)})
+
+    @app.exception_handler(OSError)
+    async def disk_error(request, error):
+        return JSONResponse(status_code=503, content={"detail": "Storage is unavailable or full. The last committed snapshot is retained."})
+
+    @app.middleware("http")
+    async def writes(request: Request, call_next):
+        if request.url.path.startswith("/api/") and request.method not in ("GET", "HEAD", "OPTIONS"):
+            if mode == "demo":
+                return JSONResponse(status_code=403, content={"detail": "Demo mode is read-only."})
+            origin = request.headers.get("origin")
+            if request.headers.get("x-pkmn-sbank") != "1" or (origin and urlsplit(origin).netloc != request.headers.get("host")):
+                return JSONResponse(status_code=403, content={"detail": "Use the website on this Pi to change Bank data."})
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "mode": "demo", "hardware_connected": False}
+        try:
+            _command()
+            pkhex = True
+        except BuilderError:
+            pkhex = False
+        return {"status": "ok", "mode": mode, "hardware_connected": False, "pkhex_available": pkhex,
+                "host_target": "Raspberry Pi 5"}
 
     @app.get("/api/boxes", response_model=list[Box])
     def boxes():
-        return demo_boxes()
+        return demo_boxes() if mode == "demo" else store.boxes()
 
     @app.get("/api/boxes/{box_id}", response_model=Box)
     def box(box_id: int):
-        return next((box for box in demo_boxes() if box.id == box_id), None) or missing_box()
+        return next((b for b in boxes() if (b.id if isinstance(b, Box) else b["id"]) == box_id), None) or missing_box()
+
+    @app.get("/api/settings")
+    def settings():
+        return {"trainer": None} if mode == "demo" else store.settings()
+
+    @app.put("/api/settings/trainer")
+    def trainer(value: Trainer):
+        if value.language == 6 or value.ot.strip() != value.ot or any(ord(c) < 32 for c in value.ot):
+            raise HTTPException(422, "Enter a valid trainer name and Pokémon language (language 6 is unused).")
+        store.set_trainer(value.model_dump())
+        return store.settings()
+
+    @app.post("/api/import")
+    async def import_file(request: Request, name: str = Query(min_length=1, max_length=120)):
+        if name in (".", "..") or Path(name).name != name or "\\" in name or any(ord(c) < 32 for c in name):
+            raise HTTPException(422, "Choose a plain file name.")
+        if request.headers.get("content-type", "").split(";")[0] != "application/octet-stream":
+            raise HTTPException(415, "Upload a Pokémon file or save as application/octet-stream.")
+        from pokeldn.app.bank import IMPORT_LIMIT
+        chunks, size = [], 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > IMPORT_LIMIT:
+                raise HTTPException(413, "The import limit is 64 MiB.")
+            chunks.append(chunk)
+        if not size:
+            raise HTTPException(422, "The file is empty.")
+        return await run_in_threadpool(store.import_file, name, b"".join(chunks))
+
+    @app.post("/api/pokemon/{entry_id}/move")
+    def move(entry_id: str, target: Move):
+        store.move(entry_id, target.box_id, target.slot, target.expected)
+        return {"ok": True}
+
+    @app.patch("/api/boxes/{box_id}")
+    def rename(box_id: int, value: BoxName):
+        name = value.name.strip()
+        if not name or any(ord(c) < 32 for c in name):
+            raise HTTPException(422, "Enter a box name.")
+        store.rename(box_id, name)
+        return {"ok": True}
+
+    @app.get("/api/pokemon/{entry_id}/export")
+    def export(entry_id: str):
+        if mode == "demo":
+            raise HTTPException(404, "Demo mode has no stored Pokémon exports.")
+        name, data = store.export(entry_id)
+        return Response(data, media_type="application/octet-stream",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.get("/api/sprites/{dex}")
+    def sprite(dex: int, shiny: bool = False):
+        if not 1 <= dex <= 2000:
+            raise HTTPException(404, "Sprite not found")
+        data = sprites.get(dex, shiny)
+        if data is None:
+            raise HTTPException(404, "Sprite unavailable offline")
+        return Response(data, media_type="image/png")
 
     @app.get("/api/history")
     def history():
-        return {"mode": "demo", "entries": [], "message": "No real transfers have been performed."}
+        return {"mode": mode, "entries": [] if mode == "demo" else store.history(),
+                "message": "Storage operations only; no real trades have been performed."}
 
-    # Register /api fallback before StaticFiles so unknown API paths never return HTML.
+    @app.get("/api/backups")
+    def backups():
+        return [] if mode == "demo" else store.backups()
+
+    @app.get("/api/backup")
+    def backup():
+        if mode == "demo":
+            raise HTTPException(404, "Demo mode has no Bank backup.")
+        path = store.backup_file()
+        return FileResponse(path, media_type="application/zip", filename="pkmn-sbank-backup.zip",
+                            background=BackgroundTask(path.unlink, missing_ok=True))
+
+    @app.post("/api/backups/{revision_id}/restore")
+    def restore(revision_id: str):
+        store.restore(revision_id)
+        return {"ok": True}
+
     @app.get("/api/{path:path}", include_in_schema=False)
     def unknown_api(path: str):
         raise HTTPException(status_code=404, detail="API endpoint not found")
@@ -79,12 +221,11 @@ def create_app(frontend_dir: Path | None = None) -> FastAPI:
     frontend = frontend_dir or Path(os.environ.get("PKMN_SBANK_WEB_DIST",
         str(Path(__file__).resolve().parents[2] / "web" / "dist")))
     if (frontend / "index.html").is_file():
-        # Hash navigation means StaticFiles can enforce traversal and missing-asset checks.
         app.mount("/", StaticFiles(directory=frontend, html=True), name="website")
     else:
         @app.get("/", include_in_schema=False)
         def build_help():
-            return {"message": "Build web/ with npm ci && npm run build, then restart the API.", "mode": "demo"}
+            return {"message": "Build web/ with npm ci && npm run build, then restart the API.", "mode": mode}
     return app
 
 
