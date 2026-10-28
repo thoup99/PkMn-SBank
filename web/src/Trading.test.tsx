@@ -168,6 +168,7 @@ it("restores an interrupted session and resumes only on explicit input", async (
   expect(screen.getByRole("checkbox", { name: /Pikachu/ })).toBeDisabled();
 });
 it("keeps an invalidated backup session from resuming and offers fresh staging", async () => {
+  const user = userEvent.setup();
   vi.mocked(fetch).mockImplementation(() =>
     reply({
       games,
@@ -181,9 +182,12 @@ it("keeps an invalidated backup session from resuming and offers fresh staging",
   expect(
     screen.queryByRole("button", { name: "Resume simulation" }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Check compatibility" }),
-  ).toBeEnabled();
+  expect(screen.getByRole("checkbox", { name: /Pikachu/ })).not.toBeChecked();
+  expect(screen.getByRole("button", { name: "Check compatibility" })).toBeDisabled();
+  await user.click(screen.getByRole("checkbox", { name: /Pikachu/ }));
+  expect(screen.getByRole("button", { name: "Check compatibility" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Clear selection" }));
+  expect(screen.getByRole("checkbox", { name: /Pikachu/ })).not.toBeChecked();
 });
 it("recovers from an initial API failure with an explicit retry", async () => {
   const user = userEvent.setup();
