@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Box, Page, Pokemon } from "./types";
 import Trading from "./Trading";
+import USBTrading from "./USBTrading";
 import { matches, pageFromHash } from "./types";
 import {
   ImportTools,
@@ -140,7 +141,13 @@ function Details({
           />
         </>
       )}
-      {pokemon.dummy && <p className="muted">Reusable deposit offer. Pick this Pikachu on Trading; it is prepared automatically. Incoming Pokémon go to boxes 1–4, while this box stays full.</p>}
+      {pokemon.dummy && (
+        <p className="muted">
+          Reusable deposit offer. Pick this Pikachu on Trading; it is prepared
+          automatically. Incoming Pokémon go to boxes 1–4, while this box stays
+          full.
+        </p>
+      )}
       <button className="primary" onClick={onClose}>
         Back to boxes
       </button>
@@ -201,7 +208,9 @@ export default function App() {
     return () => controller.abort();
   }, [attempt]);
   const box = boxes.find((b) => b.id === active) ?? boxes[0];
-  const all = boxes.flatMap((b) => b.slots).filter((p): p is Pokemon => !!p && !p.dummy);
+  const all = boxes
+    .flatMap((b) => b.slots)
+    .filter((p): p is Pokemon => !!p && !p.dummy);
   const count = box?.slots.filter(Boolean).length ?? 0;
   const visible =
     box?.slots.filter((p) => p && matches(p, query, type)).length ?? 0;
@@ -406,7 +415,9 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                {!demo && box.kind !== "dummy" && <RenameBox box={box} onChange={reload} />}
+                {!demo && box.kind !== "dummy" && (
+                  <RenameBox box={box} onChange={reload} />
+                )}
                 <div className="filters">
                   <label className="search">
                     <span aria-hidden="true">⌕</span>
@@ -497,11 +508,16 @@ export default function App() {
                   <span>Select a Pokémon to view details</span>
                 </div>
               </section>
-              {!demo && box.kind !== "dummy" && <ImportTools ready={pkhex} onChange={reload} />}
+              {!demo && box.kind !== "dummy" && (
+                <ImportTools ready={pkhex} onChange={reload} />
+              )}
             </>
           )}
           {status === "ready" && page === "trading" && !demo && (
-            <Trading boxes={boxes} ready={pkhex} />
+            <>
+              <USBTrading boxes={boxes} onChange={reload} />
+              <Trading boxes={boxes} ready={pkhex} />
+            </>
           )}
           {status === "ready" && page === "trading" && demo && (
             <section className="panel trading">

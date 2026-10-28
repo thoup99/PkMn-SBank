@@ -7,8 +7,8 @@ Phase 3 adds real Bank imports/exports, persistent 30-slot boxes, moves/swaps,
 box names, receiving-trainer settings, operation history and recoverable snapshots.
 **The only supported website server is a Raspberry Pi 5 running 64-bit Raspberry
 Pi OS.** Phones and computers access its website through a browser on the same LAN.
-Phase 4 adds [simulated trading](simulated-trading.md). Real Switch trading, ESP32-S3 control, automatic startup, hotspot setup and 3DS integration
-remain later phases. Existing upstream CLI/desktop tools are preserved.
+Phase 4 adds [simulated trading](simulated-trading.md). [Phase 5 USB Sword/Shield testing](usb-trading.md) now connects the existing engine to a USB ESP32-S3.
+Automatic startup, hotspot setup and 3DS integration remain later phases. Existing upstream CLI/desktop tools are preserved.
 
 ## 1. Prepare the Pi
 

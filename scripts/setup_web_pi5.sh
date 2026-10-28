@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Website/storage setup only. No radio, networking, keys, firmware or GUI changes.
+# Website/storage and USB runtime setup. Does not flash firmware or change keys/networking.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
@@ -39,7 +39,7 @@ fi
 cd "$ROOT"
 python3 -m venv .venv-web
 .venv-web/bin/python -m pip install --upgrade pip
-.venv-web/bin/python -m pip install -r requirements-web.txt
+.venv-web/bin/python -m pip install -r requirements-web.txt -r requirements.txt esptool==5.4.0
 # Native self-contained linux-arm64 helper: no dotnet PATH requirement at runtime.
 dotnet publish services/pkhex -c Release -r linux-arm64 -p:PublishTrimmed=false -o services/pkhex/dist -warnaserror
 (cd web; npm ci; npm run build)

@@ -1627,7 +1627,9 @@ def test_windows_auto_port_enumerates_usb_without_opening_it(monkeypatch):
         esp32_wlan.auto_port()
 
 
-def test_sword_host_and_joiner_trade_on_simulated_boards(tmp_path, monkeypatch):
+@pytest.mark.parametrize("bounded", [False, True])
+def test_sword_host_and_joiner_trade_on_simulated_boards(tmp_path, monkeypatch, bounded):
+    import json
     """bin/swsh_connect.py against bin/swsh_host.py: two trades on one session, each side offering
     its queued records in order and saving the other's. The host plays a console's player: it accepts
     first and offers again from the box after the first trade (--lead)."""
@@ -1668,7 +1670,9 @@ def test_sword_host_and_joiner_trade_on_simulated_boards(tmp_path, monkeypatch):
         ["--keys", str(keys_file), "--channel", "6", "--seconds", "50", "--accept-first",
          "--lead", "3",
          "--snapshot", str(tmp_path / "snapshot.bin"), "--received", str(tmp_path / "host.pk8"),
-         "--offer-file", str(tmp_path / "offer0.pk8"), "--offer-file", str(tmp_path / "offer1.pk8")])),
+         "--offer-file", str(tmp_path / "offer0.pk8"),
+         *( ["--one-trade-receipt", str(tmp_path / "confirmed.json"), "--end-delay", "0.5"] if bounded
+            else ["--offer-file", str(tmp_path / "offer1.pk8")] )])),
         daemon=True)
     threads["join"] = threading.Thread(target=lambda: result.setdefault("join", swsh_connect.main(
         ["--keys", str(keys_file), "--preset", "trade", "--channels", "6", "--dwell", "0.5",
@@ -1690,8 +1694,15 @@ def test_sword_host_and_joiner_trade_on_simulated_boards(tmp_path, monkeypatch):
 
     def species(name):
         return pokemon.read(pokemon.encrypt(gen8.load((tmp_path / name).read_bytes())))["species"]
-    assert [species(n) for n in ("join.pk8", "join-2.pk8")] == [94, 95]
-    assert [species(n) for n in ("host.pk8", "host-2.pk8")] == [96, 97]
+    if bounded:
+        receipt = json.loads((tmp_path / "confirmed.json").read_text())
+        import base64
+        assert receipt["trade"] == 1
+        assert pokemon.read(base64.b64decode(receipt["received"]))["species"] == 96
+        assert species("join.pk8") == 94 and not (tmp_path / "host-2.pk8").exists()
+    else:
+        assert [species(n) for n in ("join.pk8", "join-2.pk8")] == [94, 95]
+        assert [species(n) for n in ("host.pk8", "host-2.pk8")] == [96, 97]
 
 
 @pytest.mark.parametrize("platform", ["linux", "darwin", "win32"])
