@@ -40,46 +40,8 @@ def drop_extensions(pubspec: Path, main: Path) -> None:
     main.write_text(text)
 
 
-MACOS_FLOOR = "12.0"   # Xcode 27 builds nothing older; Flet's client asks for 11.0
-
-
-def raise_macos_floor(client: Path) -> None:
-    podfile = client / "macos" / "Podfile"
-    text = podfile.read_text().replace("platform :osx, '11.0'", f"platform :osx, '{MACOS_FLOOR}'")
-    anchor = "    flutter_additional_macos_build_settings(target)\n"
-    assert anchor in text, "Flet's client Podfile changed shape"
-    podfile.write_text(text.replace(anchor, anchor + "    target.build_configurations.each { |c| "
-                                    f"c.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '{MACOS_FLOOR}' }}\n", 1))
-    project = client / "macos" / "Runner.xcodeproj" / "project.pbxproj"
-    project.write_text(project.read_text().replace("MACOSX_DEPLOYMENT_TARGET = 11.0;",
-                                                   f"MACOSX_DEPLOYMENT_TARGET = {MACOS_FLOOR};"))
-
-
-def skip_rive_setup(client: Path) -> None:
-    """Flet's macOS project runs `dart run rive_native:setup` on every build; without flet_rive it fails."""
-    project = client / "macos" / "Runner.xcodeproj" / "project.pbxproj"
-    text, count = re.subn(r'(name = "Rive Native Setup";.*?shellScript = )".*?";', r'\1"exit 0\\n";',
-                          project.read_text(), count=1, flags=re.S)
-    assert count, "Flet's client project changed shape"
-    project.write_text(text)
-
-
-def thin(app: Path) -> None:
-    """Flutter builds a universal client; the release is per architecture, so keep this machine's half."""
-    arch = os.uname().machine
-    for path in app.rglob("*"):
-        if path.is_file() and not path.is_symlink() and path.read_bytes()[:4] == b"\xca\xfe\xba\xbe":
-            subprocess.run(["lipo", "-thin", arch, str(path), "-output", str(path)], check=True)
-    subprocess.run(["codesign", "--force", "--deep", "--sign", "-", "--preserve-metadata=entitlements", str(app)],
-                   check=True)
-
-
 def patch(client: Path) -> None:
-    subprocess.run(["git", "checkout", "--", "pubspec.yaml", "lib/main.dart", "macos/Podfile",
-                    "macos/Runner.xcodeproj/project.pbxproj"], cwd=client, check=True)
-    if sys.platform == "darwin":
-        raise_macos_floor(client)
-        skip_rive_setup(client)
+    subprocess.run(["git", "checkout", "--", "pubspec.yaml", "lib/main.dart"], cwd=client, check=True)
     pubspec, main = client / "pubspec.yaml", client / "lib" / "main.dart"
     drop_extensions(pubspec, main)
     text = pubspec.read_text()
@@ -94,6 +56,8 @@ def patch(client: Path) -> None:
 
 
 def main() -> int:
+    if sys.platform not in ("linux", "win32"):
+        raise SystemExit("Desktop builds support Linux and Windows only; use the website on other platforms.")
     if not shutil.which("flutter"):
         raise SystemExit("Install Flutter first: https://docs.flutter.dev/get-started/install")
     flet, flutter = flet_versions()
@@ -122,11 +86,7 @@ def main() -> int:
     out = CLIENT / key
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
-    if key == "macos":
-        built = client / "build/macos/Build/Products/Release/Flet.app"
-        subprocess.run(["ditto", str(built), str(out / "Flet.app")], check=True)
-        thin(out / "Flet.app")
-    elif key == "windows":
+    if key == "windows":
         built = client / "build/windows/x64/runner/Release"
         shutil.copytree(built, out / "flet")
         system = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32"

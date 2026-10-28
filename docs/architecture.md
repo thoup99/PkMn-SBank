@@ -221,5 +221,5 @@ dotnet build -c Release services/pkhex -warnaserror
 python -m pytest tests/ -q -W error -n auto --dist worksteal
 ```
 
-CI runs these on Linux, macOS and Windows. Release builds run `scripts/check_app.py` against the frozen
+CI runs these on Linux and Windows. Release builds run `scripts/check_app.py` against the frozen
 executable; it needs no keys or board.

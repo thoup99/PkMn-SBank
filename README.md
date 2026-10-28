@@ -77,6 +77,8 @@ Until a PkMn-SBank web release exists, refer to the original pokeldn documentati
 - **Preserved upstream README:** [UPSTREAM_README.md](UPSTREAM_README.md) — original overview, supported-game matrix, setup instructions, credits, and disclaimers.
 - **Existing technical documentation:** [docs/](docs/) — game protocols, hardware, command-line usage, and architecture.
 
+See [website development](docs/web-development.md) for the supported development environment and platform migration.
+
 The fork will track upstream changes where practical. New work should be made in small, reviewable changes without unnecessarily rewriting protocol implementations.
 
 ## Licensing and disclaimer
