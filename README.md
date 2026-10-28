@@ -2,7 +2,7 @@
 
 **A self-hosted Pokémon transfer bridge — move Pokémon between generations, not into permanent storage.**
 
-> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the PkMn-SBank web interface, Raspberry Pi appliance setup, and 3DS companion are planned work, **not yet released features**.
+> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the PkMn-SBank web interface now has a read-only sample-data foundation. Real Bank/website trading integration, Raspberry Pi appliance setup, and the 3DS companion are **not yet released features**.
 
 ## What we're building
 
@@ -61,13 +61,13 @@ The intended appliance can host a local Wi-Fi hotspot for offline use, with the 
 | Component | State |
 | --- | --- |
 | Original pokeldn trading engines, protocols, CLI, Bank, and ESP32 firmware | **Inherited from upstream** |
-| Browser-based Pokémon boxes and trading UI | **Planned** |
+| Browser-based Pokémon boxes and navigation | **Demo implemented** — sample data only; trading controls deferred |
 | Raspberry Pi boot service, hotspot, and deployment | **Planned** |
 | Real Switch trades launched from our website | **Planned** (upstream has existing trading tools) |
 | CFW 3DS homebrew app and save transfers | **Planned**, after website v1 |
 | Backward-generation / destructive conversion | **Future research** |
 
-Until a PkMn-SBank web release exists, refer to the original pokeldn documentation for upstream setup and CLI usage.
+Run the website demo using [website development instructions](docs/web-development.md). Refer to the preserved pokeldn documentation for upstream setup and CLI usage.
 
 ## Repositories and documentation
 
