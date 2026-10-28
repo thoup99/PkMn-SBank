@@ -29,7 +29,13 @@ beforeEach(() => {
   window.location.hash = "#boxes";
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => boxes }),
+    vi.fn().mockImplementation(async (path: string) => ({
+      ok: true,
+      json: async () =>
+        path === "/api/health"
+          ? { mode: "demo", pkhex_available: false }
+          : boxes,
+    })),
   );
 });
 it("shows exactly 30 slots, opens details, filters and changes boxes", async () => {

@@ -108,3 +108,5 @@ EVAL_RUN_NOTES.txt
 /web/node_modules/
 /web/dist/
 /web/*.tsbuildinfo
+/.web-tools/
+/.venv-web/

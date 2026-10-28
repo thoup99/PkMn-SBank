@@ -965,3 +965,103 @@ dd {
     font-size: 11px;
   }
 }
+
+.import-tools label,
+.move-tools label,
+.trainer-form label,
+.rename-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #476654;
+}
+.import-tools input,
+.move-tools input,
+.trainer-form input,
+.rename-box input {
+  padding: 10px;
+  border: 1px solid #dce6e0;
+  border-radius: 8px;
+  min-width: 0;
+  max-width: 100%;
+  background: #fff;
+  color: #234247;
+}
+.import-tools li {
+  font-size: 12px;
+  margin: 7px 0;
+}
+.import-tools [role="alert"],
+.move-tools [role="alert"],
+[role="alert"] {
+  color: #974b2d;
+}
+.move-tools {
+  border-top: 1px solid #dce6e0;
+  padding-top: 16px;
+  margin-bottom: 20px;
+  display: grid;
+  gap: 10px;
+}
+.rename-box {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.trainer-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.trainer-form button {
+  align-self: end;
+}
+.backup-tools {
+  border-top: 1px solid #dce6e0;
+  margin-top: 30px;
+  padding-top: 22px;
+}
+.backup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e4ece4;
+  padding: 15px 0;
+  font-size: 12px;
+}
+.backup-row small {
+  display: block;
+  color: #8a9b8b;
+  overflow-wrap: anywhere;
+}
+.backup-row time {
+  font-size: 10px;
+  color: #8a9b8b;
+}
+dialog {
+  max-height: 90vh;
+  overflow: auto;
+}
+@media (max-width: 760px) {
+  .trainer-form {
+    grid-template-columns: 1fr;
+  }
+  .backup-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .rename-box input {
+    max-width: 190px;
+  }
+}
+
+.import-tools ul {
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 12px;
+}

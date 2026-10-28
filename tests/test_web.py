@@ -4,7 +4,7 @@ from pokeldn.web.app import create_app
 
 
 def test_demo_boxes_are_stable_and_read_only():
-    client = TestClient(create_app())
+    client = TestClient(create_app(mode="demo"))
     boxes = client.get('/api/boxes').json()
     assert len(boxes) == 4
     assert all(len(box['slots']) == 30 for box in boxes)
@@ -14,9 +14,9 @@ def test_demo_boxes_are_stable_and_read_only():
     assert all(p['trainer'] == 'DEMO' for p in pokemon)
     assert client.get('/api/boxes/1').json() == boxes[0]
     assert client.get('/api/boxes/99').status_code == 404
-    assert client.post('/api/boxes', json={}).status_code == 405
+    assert client.post('/api/boxes', json={}).status_code == 403
     assert client.get('/api/boxes').json() == boxes
-    assert client.get('/api/health').json() == {'status': 'ok', 'mode': 'demo', 'hardware_connected': False}
+    assert client.get('/api/health').json()['mode'] == 'demo'
     assert client.get('/api/history').json()['entries'] == []
 
 

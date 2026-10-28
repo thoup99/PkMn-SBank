@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { Box, Page, Pokemon } from "./types";
 import { matches, pageFromHash } from "./types";
+import {
+  ImportTools,
+  MoveTools,
+  RenameBox,
+  StorageHistory,
+  StorageSettings,
+} from "./BankTools";
 
 const pages: [Page, string, string][] = [
   ["dashboard", "Dashboard", "◈"],
@@ -25,26 +32,36 @@ const types = [
   "Dragon",
 ];
 function Sprite({ pokemon }: { pokemon: Pokemon }) {
-  const [failed, setFailed] = useState(false);
-  return failed ? (
+  const [imageStage, setImageStage] = useState(0);
+  return imageStage >= 2 ? (
     <span className="sprite-fallback" aria-label={pokemon.species}>
       {pokemon.species.slice(0, 2)}
     </span>
   ) : (
     <img
       className="sprite"
-      src={`/sprites/${pokemon.shiny ? "shiny/" : ""}${pokemon.dex}.png`}
+      src={
+        imageStage === 0
+          ? `/sprites/${pokemon.shiny ? "shiny/" : ""}${pokemon.dex}.png`
+          : `/api/sprites/${pokemon.dex}?shiny=${pokemon.shiny}`
+      }
       alt={pokemon.species}
-      onError={() => setFailed(true)}
+      onError={() => setImageStage((s) => s + 1)}
     />
   );
 }
 function Details({
   pokemon,
   onClose,
+  demo,
+  boxes,
+  onChange,
 }: {
   pokemon: Pokemon;
   onClose: () => void;
+  demo: boolean;
+  boxes: Box[];
+  onChange: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -68,7 +85,9 @@ function Details({
       >
         ×
       </button>
-      <p className="eyebrow">POKÉMON DETAILS · SAMPLE</p>
+      <p className="eyebrow">
+        POKÉMON DETAILS · {demo ? "SAMPLE" : "BANK RECORD"}
+      </p>
       <div className="detail-sprite">
         <Sprite pokemon={pokemon} />
       </div>
@@ -76,7 +95,8 @@ function Details({
         {pokemon.species} {pokemon.shiny && "✦"}
       </h2>
       <p>
-        #{String(pokemon.dex).padStart(4, "0")} · Level {pokemon.level}
+        #{String(pokemon.dex).padStart(4, "0")} · Level{" "}
+        {pokemon.level ?? "unknown"}
       </p>
       <div className="tags">
         {pokemon.types.map((t) => (
@@ -92,14 +112,33 @@ function Details({
         ].map(([k, v]) => (
           <div key={k}>
             <dt>{k}</dt>
-            <dd>{v}</dd>
+            <dd>{v || "Not recorded"}</dd>
           </div>
         ))}
       </dl>
       <p className="muted">
-        Illustrative metadata only. This is not a stored Pokémon record or a
-        compatibility assessment.
+        {demo
+          ? "Illustrative metadata only. This is not a stored Pokémon record."
+          : pokemon.summary}
       </p>
+      {!demo && (
+        <>
+          <p className="muted">
+            Import validation:{" "}
+            {pokemon.legal
+              ? "accepted by the Bank importer"
+              : "not marked legal"}
+            {pokemon.home_tracker && ` · HOME tracker: ${pokemon.home_tracker}`}
+            . Destination compatibility is checked in a later phase.
+          </p>
+          <MoveTools
+            pokemon={pokemon}
+            boxes={boxes}
+            onChange={onChange}
+            onClose={onClose}
+          />
+        </>
+      )}
       <button className="primary" onClick={onClose}>
         Back to boxes
       </button>
@@ -118,6 +157,9 @@ export default function App() {
   const [type, setType] = useState("");
   const [selected, setSelected] = useState<Pokemon | null>(null);
   const [compact, setCompact] = useState(false);
+  const [demo, setDemo] = useState(false);
+  const [pkhex, setPkhex] = useState(false);
+  const reload = () => setAttempt((a) => a + 1);
   const [game, setGame] = useState("Sword / Shield");
   useEffect(() => {
     const update = () => {
@@ -129,10 +171,16 @@ export default function App() {
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    setStatus("loading");
-    fetch("/api/boxes", { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("Unable to load boxes");
+    if (!boxes.length) setStatus("loading");
+    Promise.all([
+      fetch("/api/boxes", { signal: controller.signal }),
+      fetch("/api/health", { signal: controller.signal }),
+    ])
+      .then(async ([response, health]) => {
+        if (!response.ok || !health.ok) throw new Error("Unable to load boxes");
+        const info = await health.json();
+        setDemo(info.mode === "demo");
+        setPkhex(info.pkhex_available);
         return response.json();
       })
       .then((data: Box[]) => {
@@ -183,7 +231,7 @@ export default function App() {
         </nav>
         <div className="host">
           <span className="status-dot" /> Website preview
-          <small>Raspberry Pi 5 host · planned</small>
+          <small>Raspberry Pi 5 host</small>
           <span className="host-tag">NO HARDWARE CONNECTED</span>
         </div>
         <p className="sidebar-foot">A bridge to your next adventure.</p>
@@ -191,7 +239,9 @@ export default function App() {
       <div className="workspace">
         <header className="topbar">
           <span>YOUR POKÉMON. NEW POSSIBILITIES.</span>
-          <span className="demo-pill">Sample data</span>
+          <span className="demo-pill">
+            {demo ? "Sample data" : "Your Bank"}
+          </span>
         </header>
         <main>
           <div className="page-heading">
@@ -204,19 +254,29 @@ export default function App() {
                   : "Your Pokémon transfer bridge, at a glance."}
               </p>
             </div>
-            <span className="version">WEBSITE FOUNDATION · 0.1</span>
+            <span className="version">BANK STORAGE · 0.2</span>
           </div>
           <div className="notice">
             <span aria-hidden="true">◉</span>
             <span>
-              <strong>You’re exploring the demo.</strong> Sample Pokémon only.
-              Real Bank storage and Switch trading will be connected in later
-              phases.
+              {demo ? (
+                <>
+                  <strong>You’re exploring the demo.</strong> Sample Pokémon
+                  only.
+                </>
+              ) : (
+                <>
+                  <strong>Your Bank lives on this Pi.</strong> Imports, box
+                  changes, and backups are saved locally. Set your receiving
+                  trainer in Settings before importing.
+                </>
+              )}{" "}
+              Switch trading is not connected.
             </span>
           </div>
           {status === "loading" && (
             <section className="panel empty" role="status">
-              Loading sample boxes…
+              Loading boxes…
             </section>
           )}
           {status === "error" && (
@@ -254,11 +314,13 @@ export default function App() {
                   <span className="orbit-label">CONNECT. STAGE. TRANSFER.</span>
                 </div>
               </section>
-              <section className="stats" aria-label="Demo summary">
+              <section className="stats" aria-label="Bank summary">
                 <div>
-                  <span>Sample Pokémon</span>
+                  <span>{demo ? "Sample Pokémon" : "Banked Pokémon"}</span>
                   <strong>{all.length.toString().padStart(2, "0")}</strong>
-                  <small>Illustrative records</small>
+                  <small>
+                    {demo ? "Illustrative records" : "Saved on your Pi"}
+                  </small>
                 </div>
                 <div>
                   <span>Staging boxes</span>
@@ -301,133 +363,140 @@ export default function App() {
             </>
           )}
           {status === "ready" && page === "boxes" && box && (
-            <section className="panel boxes-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>{box.name}</h2>
-                  <p className="muted">
-                    Box {box.id.toString().padStart(2, "0")} · {count} / 30
-                    occupied{(query || type) && ` · ${visible} matching`}
-                  </p>
+            <>
+              <section className="panel boxes-panel">
+                <div className="section-heading">
+                  <div>
+                    <h2>{box.name}</h2>
+                    <p className="muted">
+                      Box {box.id.toString().padStart(2, "0")} · {count} / 30
+                      occupied{(query || type) && ` · ${visible} matching`}
+                    </p>
+                  </div>
+                  <div className="box-stepper">
+                    <button
+                      aria-label="Previous box"
+                      disabled={boxes[0].id === box.id}
+                      onClick={() => changeBox(box.id - 1)}
+                    >
+                      ←
+                    </button>
+                    <label className="sr-only" htmlFor="box-select">
+                      Select box
+                    </label>
+                    <select
+                      id="box-select"
+                      value={box.id}
+                      onChange={(e) => changeBox(Number(e.target.value))}
+                    >
+                      {boxes.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      aria-label="Next box"
+                      disabled={boxes[boxes.length - 1].id === box.id}
+                      onClick={() => changeBox(box.id + 1)}
+                    >
+                      →
+                    </button>
+                  </div>
                 </div>
-                <div className="box-stepper">
-                  <button
-                    aria-label="Previous box"
-                    disabled={boxes[0].id === box.id}
-                    onClick={() => changeBox(box.id - 1)}
-                  >
-                    ←
-                  </button>
-                  <label className="sr-only" htmlFor="box-select">
-                    Select box
+                {!demo && <RenameBox box={box} onChange={reload} />}
+                <div className="filters">
+                  <label className="search">
+                    <span aria-hidden="true">⌕</span>
+                    <input
+                      aria-label="Search Pokémon"
+                      placeholder="Search name, Pokédex number, or game…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  </label>
+                  <label className="sr-only" htmlFor="type">
+                    {demo ? "Filter by type" : "Filter by game"}
                   </label>
                   <select
-                    id="box-select"
-                    value={box.id}
-                    onChange={(e) => changeBox(Number(e.target.value))}
+                    id="type"
+                    value={type}
+                    onChange={(e) => setType(e.target.value)}
                   >
-                    {boxes.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
+                    <option value="">{demo ? "All types" : "All games"}</option>
+                    {(demo ? types : [...new Set(all.map((p) => p.game))])
+                      .sort()
+                      .map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
                   </select>
-                  <button
-                    aria-label="Next box"
-                    disabled={boxes[boxes.length - 1].id === box.id}
-                    onClick={() => changeBox(box.id + 1)}
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-              <div className="filters">
-                <label className="search">
-                  <span aria-hidden="true">⌕</span>
-                  <input
-                    aria-label="Search Pokémon"
-                    placeholder="Search name, Pokédex number, or game…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </label>
-                <label className="sr-only" htmlFor="type">
-                  Filter by type
-                </label>
-                <select
-                  id="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  <option value="">All types</option>
-                  {types.sort().map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-                {(query || type) && (
-                  <button
-                    onClick={() => {
-                      setQuery("");
-                      setType("");
-                    }}
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-              {(query || type) && visible === 0 && (
-                <p role="status" className="filter-message">
-                  No matching Pokémon in this box. Try another box or clear the
-                  filters.
-                </p>
-              )}
-              <div className="box-grid" aria-label={`${box.name}, 30 slots`}>
-                {box.slots.map((pokemon, i) => {
-                  const hidden = pokemon && !matches(pokemon, query, type);
-                  return (
-                    <div
-                      className={`slot ${pokemon ? "occupied" : ""} ${hidden ? "filtered" : ""}`}
-                      key={i}
+                  {(query || type) && (
+                    <button
+                      onClick={() => {
+                        setQuery("");
+                        setType("");
+                      }}
                     >
-                      <span className="slot-number">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      {pokemon ? (
-                        <button
-                          disabled={!!hidden}
-                          onClick={() => setSelected(pokemon)}
-                          aria-label={`View ${pokemon.species}, level ${pokemon.level}, slot ${i + 1}`}
-                        >
-                          <Sprite pokemon={pokemon} />
-                          <strong>{pokemon.species}</strong>
-                          <small>
-                            Lv. {pokemon.level}{" "}
-                            {pokemon.shiny && (
-                              <span className="shiny" aria-label="Shiny">
-                                ✦
-                              </span>
-                            )}
-                          </small>
-                        </button>
-                      ) : (
-                        <span
-                          className="empty-slot"
-                          aria-label={`Empty slot ${i + 1}`}
-                        >
-                          ＋
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+                {(query || type) && visible === 0 && (
+                  <p role="status" className="filter-message">
+                    No matching Pokémon in this box. Try another box or clear
+                    the filters.
+                  </p>
+                )}
+                <div className="box-grid" aria-label={`${box.name}, 30 slots`}>
+                  {box.slots.map((pokemon, i) => {
+                    const hidden = pokemon && !matches(pokemon, query, type);
+                    return (
+                      <div
+                        className={`slot ${pokemon ? "occupied" : ""} ${hidden ? "filtered" : ""}`}
+                        key={i}
+                      >
+                        <span className="slot-number">
+                          {String(i + 1).padStart(2, "0")}
                         </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="box-footer">
-                <span>
-                  <span className="status-dot" /> Sample staging box
-                </span>
-                <span>Select a Pokémon to view details</span>
-              </div>
-            </section>
+                        {pokemon ? (
+                          <button
+                            disabled={!!hidden}
+                            onClick={() => setSelected(pokemon)}
+                            aria-label={`View ${pokemon.species}, level ${pokemon.level ?? "unknown"}, slot ${i + 1}`}
+                          >
+                            <Sprite pokemon={pokemon} />
+                            <strong>{pokemon.species}</strong>
+                            <small>
+                              Lv. {pokemon.level ?? "?"}{" "}
+                              {pokemon.shiny && (
+                                <span className="shiny" aria-label="Shiny">
+                                  ✦
+                                </span>
+                              )}
+                            </small>
+                          </button>
+                        ) : (
+                          <span
+                            className="empty-slot"
+                            aria-label={`Empty slot ${i + 1}`}
+                          >
+                            ＋
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="box-footer">
+                  <span>
+                    <span className="status-dot" />{" "}
+                    {demo ? "Sample staging box" : "Saved staging box"}
+                  </span>
+                  <span>Select a Pokémon to view details</span>
+                </div>
+              </section>
+              {!demo && <ImportTools ready={pkhex} onChange={reload} />}
+            </>
           )}
           {status === "ready" && page === "trading" && (
             <section className="panel trading">
@@ -435,8 +504,7 @@ export default function App() {
               <h2>Switch trading</h2>
               <p>
                 The original pokeldn trading tools are preserved. Website
-                session controls will be connected after real Bank storage is
-                ready.
+                session controls will be connected in the next phase.
               </p>
               <label htmlFor="game">Preview a destination</label>
               <select
@@ -459,7 +527,7 @@ export default function App() {
               <div className="transfer-path">
                 <div>
                   ▦<strong>Staging box</strong>
-                  <small>Sample Pokémon</small>
+                  <small>{demo ? "Sample Pokémon" : "Banked Pokémon"}</small>
                 </div>
                 <span>→</span>
                 <div>
@@ -474,7 +542,10 @@ export default function App() {
               </p>
             </section>
           )}
-          {status === "ready" && page === "history" && (
+          {status === "ready" && page === "history" && !demo && (
+            <StorageHistory />
+          )}
+          {status === "ready" && page === "history" && demo && (
             <section className="panel empty">
               <span className="empty-icon">◷</span>
               <h2>A fresh start</h2>
@@ -488,41 +559,50 @@ export default function App() {
             </section>
           )}
           {status === "ready" && page === "settings" && (
-            <section className="panel settings">
-              <h2>Website preferences</h2>
-              <p className="muted">
-                Appearance controls apply to this browser session.
-              </p>
-              <label className="setting-row">
-                <span>
-                  <strong>Compact boxes</strong>
-                  <small>Reduce space between Pokémon slots</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={compact}
-                  onChange={(e) => setCompact(e.target.checked)}
-                />
-              </label>
-              <div className="setting-row">
-                <span>
-                  <strong>Data source</strong>
-                  <small>Read-only samples · no real Bank access</small>
-                </span>
-                <span className="demo-pill">Demo</span>
-              </div>
-              <div className="setting-row">
-                <span>
-                  <strong>Host architecture</strong>
-                  <small>Raspberry Pi 5 → USB → ESP32-S3 (future)</small>
-                </span>
-              </div>
-              <p className="muted">
-                Keys, board configuration, storage, and transfer controls remain
-                in the existing upstream tools until their web integration is
-                implemented.
-              </p>
-            </section>
+            <>
+              <section className="panel settings">
+                <h2>Website preferences</h2>
+                <p className="muted">
+                  Appearance controls apply to this browser session.
+                </p>
+                <label className="setting-row">
+                  <span>
+                    <strong>Compact boxes</strong>
+                    <small>Reduce space between Pokémon slots</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={compact}
+                    onChange={(e) => setCompact(e.target.checked)}
+                  />
+                </label>
+                <div className="setting-row">
+                  <span>
+                    <strong>Data source</strong>
+                    <small>
+                      {demo
+                        ? "Read-only samples"
+                        : "Persistent Bank on your Raspberry Pi 5"}
+                    </small>
+                  </span>
+                  <span className="demo-pill">
+                    {demo ? "Demo" : "Local Bank"}
+                  </span>
+                </div>
+                <div className="setting-row">
+                  <span>
+                    <strong>Host architecture</strong>
+                    <small>Raspberry Pi 5 → USB → ESP32-S3 (future)</small>
+                  </span>
+                </div>
+                <p className="muted">
+                  Keys, board configuration, and transfer controls remain in the
+                  existing upstream tools until their web integration is
+                  implemented.
+                </p>
+              </section>
+              {!demo && <StorageSettings onChange={reload} />}
+            </>
           )}
           <footer>
             <span>PkMn-SBank · An unofficial fan project</span>
@@ -531,7 +611,14 @@ export default function App() {
         </main>
       </div>
       {selected && (
-        <Details pokemon={selected} onClose={() => setSelected(null)} />
+        <Details
+          key={selected.id}
+          pokemon={selected}
+          demo={demo}
+          boxes={boxes}
+          onChange={reload}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
