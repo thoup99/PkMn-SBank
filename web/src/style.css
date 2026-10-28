@@ -1065,3 +1065,95 @@ dialog {
   overflow: auto;
   padding-right: 12px;
 }
+
+.trade-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  color: #476654;
+  margin: 16px 0;
+}
+.trade-field input {
+  padding: 10px;
+  border: 1px solid #dce6e0;
+  border-radius: 8px;
+  min-width: 0;
+}
+.trade-field select {
+  max-width: 500px;
+}
+.stage-list {
+  max-height: 290px;
+  overflow: auto;
+  border: 1px solid #e1e9e2;
+  border-radius: 10px;
+  margin: 15px 0;
+}
+.stage-list label {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 12px 15px;
+  border-bottom: 1px solid #e7eee7;
+  font-size: 12px;
+}
+.stage-list small {
+  display: block;
+  color: #7f9585;
+  margin-top: 3px;
+}
+.stage-list input {
+  accent-color: #365f45;
+}
+.trade-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.compatibility-results > div {
+  padding: 14px 0;
+  border-bottom: 1px solid #e4ece4;
+  font-size: 13px;
+}
+.session-log {
+  max-height: 260px;
+  overflow: auto;
+  background: #f3f7f1;
+  padding: 15px 15px 15px 33px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+.session-log li {
+  margin: 8px 0;
+}
+.session-log time {
+  color: #8b9d8c;
+  font-size: 10px;
+}
+.session-panel progress {
+  width: 100%;
+  accent-color: #4e8861;
+  height: 17px;
+}
+.scenario-controls {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.trading-workflow .muted,
+.session-panel .muted {
+  max-width: 800px;
+}
+@media (max-width: 760px) {
+  .scenario-controls {
+    display: block;
+  }
+  .trade-actions button {
+    flex: 1;
+  }
+  .session-panel > p {
+    overflow-wrap: anywhere;
+  }
+}

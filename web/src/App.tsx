@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Box, Page, Pokemon } from "./types";
+import Trading from "./Trading";
 import { matches, pageFromHash } from "./types";
 import {
   ImportTools,
@@ -254,7 +255,7 @@ export default function App() {
                   : "Your Pokémon transfer bridge, at a glance."}
               </p>
             </div>
-            <span className="version">BANK STORAGE · 0.2</span>
+            <span className="version">SIMULATED TRADING · 0.3</span>
           </div>
           <div className="notice">
             <span aria-hidden="true">◉</span>
@@ -498,7 +499,10 @@ export default function App() {
               {!demo && <ImportTools ready={pkhex} onChange={reload} />}
             </>
           )}
-          {status === "ready" && page === "trading" && (
+          {status === "ready" && page === "trading" && !demo && (
+            <Trading boxes={boxes} ready={pkhex} />
+          )}
+          {status === "ready" && page === "trading" && demo && (
             <section className="panel trading">
               <p className="eyebrow">PLAN YOUR NEXT MOVE</p>
               <h2>Switch trading</h2>

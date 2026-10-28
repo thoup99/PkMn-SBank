@@ -7,6 +7,8 @@ from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from urllib.parse import urlsplit
 from pydantic import Field
+from typing import Literal
+from pokeldn.web.trading import SimulatedTrading, TARGETS
 from pokeldn.web.storage import BankStore, StorageError
 from pokeldn.pokemon import BuilderError, _command
 from fastapi.staticfiles import StaticFiles
@@ -80,6 +82,21 @@ class BoxName(BaseModel):
     name: str = Field(min_length=1, max_length=32)
 
 
+class TradeSelection(BaseModel):
+    game: Literal["frlg", "lgpe", "swsh", "bdsp", "pla", "sv", "za"]
+    entry_ids: list[str] = Field(min_length=1, max_length=6)
+
+
+class TradeStage(TradeSelection):
+    token: str = Field(min_length=64, max_length=64)
+
+
+class TradeAction(BaseModel):
+    version: int = Field(strict=True, ge=1)
+    scenario: Literal["success", "disconnect", "failure"] = "success"
+    fault_after: int = Field(strict=True, default=0, ge=0, le=5)
+
+
 def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None,
                mode: str | None = None) -> FastAPI:
     mode = mode or os.environ.get("PKMN_SBANK_MODE", "bank")
@@ -87,9 +104,10 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
         raise ValueError("PKMN_SBANK_MODE must be bank or demo")
     root = data_dir or Path(os.environ.get("POKELDN_DATA", str(Path.home() / ".local/share/pkmn-sbank"))) / "web-bank"
     store = BankStore(root)
+    trading = SimulatedTrading(store)
     from pokeldn.app.sprites import SpriteCache
     sprites = SpriteCache(folder=root / "sprites")
-    app = FastAPI(title="PkMn-SBank", version="0.2.0", description="Pi 5 Bank storage; hardware control comes later.")
+    app = FastAPI(title="PkMn-SBank", version="0.3.0", description="Pi 5 Bank storage and simulated trading; hardware control comes later.")
 
     @app.exception_handler(StorageError)
     async def storage_error(request, error):
@@ -195,7 +213,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     @app.get("/api/history")
     def history():
         return {"mode": mode, "entries": [] if mode == "demo" else store.history(),
-                "message": "Storage operations only; no real trades have been performed."}
+                "message": "Bank and simulation operations only; no real trades have been performed."}
 
     @app.get("/api/backups")
     def backups():
@@ -213,6 +231,24 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     def restore(revision_id: str):
         store.restore(revision_id)
         return {"ok": True}
+
+    @app.get("/api/trade/session")
+    def trade_session():
+        if mode == "demo":
+            return {"mode": "demo", "games": [{"key": key, "name": name} for key, name in TARGETS.items()], "session": None}
+        return trading.current()
+
+    @app.post("/api/trade/preview")
+    def trade_preview(value: TradeSelection):
+        return trading.preview(value.game, value.entry_ids)
+
+    @app.post("/api/trade/stage")
+    def trade_stage(value: TradeStage):
+        return trading.stage(value.game, value.entry_ids, value.token)
+
+    @app.post("/api/trade/session/{session_id}/{action}")
+    def trade_action(session_id: str, action: Literal["start", "advance", "resume", "cancel"], value: TradeAction):
+        return trading.action(session_id, action, value.version, scenario=value.scenario, fault_after=value.fault_after)
 
     @app.get("/api/{path:path}", include_in_schema=False)
     def unknown_api(path: str):
