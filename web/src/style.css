@@ -1173,3 +1173,7 @@ dialog {
 .keys-status-present {
   color: #18723c;
 }
+
+.outgoing-pokemon option:disabled {
+  color: #7a8381;
+}

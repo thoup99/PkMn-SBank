@@ -6,6 +6,7 @@ interface USBSession {
   status: string;
   message: string;
   code: string;
+  game: string;
   species: string;
   received_id: string | null;
 }
@@ -16,6 +17,10 @@ interface USBStatus {
   session: USBSession | null;
   logs: string[];
   games: { key: string; name: string; available: boolean }[];
+}
+interface Compatibility {
+  game: string;
+  entries: {id: string; compatible: boolean; reason: string}[];
 }
 const pending = [
   "starting",
@@ -46,6 +51,8 @@ export default function USBTrading({
     [device, setDevice] = useState(""),
     [code, setCode] = useState("12345678"),
     [entry, setEntry] = useState("dummy-pikachu-01");
+  const [compatibility, setCompatibility] = useState<Compatibility | null>(null);
+  const [compatibilityError, setCompatibilityError] = useState("");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [checked, setChecked] = useState(false);
@@ -60,6 +67,24 @@ export default function USBTrading({
   useEffect(() => {
     refresh().catch((err) => setError(err.message));
   }, []);
+  useEffect(() => {
+    setCompatibility(null);
+    setCompatibilityError("");
+    if (!game) return;
+    let current = true;
+    const controller = new AbortController();
+    api(`/api/usb/compatibility?game=${encodeURIComponent(game)}`, {signal: controller.signal})
+      .then((result: Compatibility) => {
+        if (!current) return;
+        if (result.game !== game || !Array.isArray(result.entries))
+          throw new Error("Could not verify Pokémon compatibility. Refresh the page and try again.");
+        setCompatibility(result);
+        setEntry(previous => result.entries.some(item => item.id === previous && item.compatible)
+          ? previous : result.entries.find(item => item.compatible)?.id || "");
+      })
+      .catch(err => {if (current) setCompatibilityError(err.message);});
+    return () => {current = false; controller.abort();};
+  }, [game, boxes]);
   useEffect(() => {
     if (!status?.session || !pending.includes(status.session.status) || busy)
       return;
@@ -100,9 +125,11 @@ export default function USBTrading({
       !!status?.session &&
       ["starting", "running", "stopping"].includes(status.session.status),
     blocked = !!status?.session && pending.includes(status.session.status);
+  const available = new Map((compatibility?.game === game ? compatibility.entries : []).map(item => [item.id, item]));
+  const sessionName = status?.games.find(target => target.key === status.session?.game)?.name;
   return (
     <section className="panel session-panel">
-      <p className="eyebrow">PHASE 5 · REAL USB TRADE · SWORD / SHIELD</p>
+      <p className="eyebrow">REAL USB TRADE · SWORD / SHIELD · LEGENDS Z-A</p>
       <h2>Trade with your Switch</h2>
       <p className="muted">
         This starts one real Link Trade using the ESP32-S3 on your Pi’s native
@@ -132,26 +159,32 @@ export default function USBTrading({
           ))}
         </select>
       </label>
-      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield only. Other destinations can be previewed in the simulator below.</p>
+      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield and Legends Z-A. Other destinations can be previewed in the simulator below.</p>
       <label className="trade-field">
         Outgoing Pokémon
         <select
+          className="outgoing-pokemon"
           value={entry}
-          disabled={busy || blocked}
+          disabled={busy || blocked || !game || !compatibility || compatibility.game !== game}
           onChange={(e) => setEntry(e.target.value)}
         >
+          <option value="">Choose an outgoing Pokémon</option>
           {boxes
             .flatMap((b) => b.slots)
             .filter((p) => p !== null)
             .map((p) => (
-              <option value={p.id} key={p.id}>
+              <option value={p.id} key={p.id} disabled={!available.get(p.id)?.compatible} title={available.get(p.id)?.reason || undefined}>
                 {p.species} ·{" "}
                 {p.dummy ? "Reserve Pikachu (replenished)" : p.game} ·{" "}
                 {p.id.slice(-8)}
+                {available.get(p.id)?.compatible ? "" : ` — ${available.get(p.id)?.reason.replace(/\s+/g, " ").slice(0, 160) || "not checked"}`}
               </option>
             ))}
         </select>
       </label>
+      {game && !compatibility && !compatibilityError && <p role="status">Checking Pokémon compatibility…</p>}
+      {compatibilityError && <p role="alert">{compatibilityError}</p>}
+      <p className="muted">Grayed-out Pokémon cannot be prepared for this game or have not been checked. Compatibility is revalidated before a real trade starts.</p>
       <label className="trade-field">
         Native USB board
         <select
@@ -200,6 +233,7 @@ export default function USBTrading({
             blocked ||
             !status?.supported_host ||
             !status?.keys_available ||
+            !available.get(entry)?.compatible ||
             !status?.games?.some(target => target.key === game && target.available) ||
             !device ||
             !/^\d{8}$/.test(code)
@@ -221,12 +255,13 @@ export default function USBTrading({
             })
           }
         >
-          Start real Sword/Shield trade
+          {game === "swsh" ? "Start real Sword/Shield trade" : game === "za" ? "Start real Legends Z-A trade" : "Start real trade"}
         </button>
       </div>
       {status?.session && (
         <>
           <h3>USB session: {status.session.status}</h3>
+          {sessionName && <p>Destination: {sessionName}</p>}
           <p role="status">{status.session.message}</p>
           <p>
             Link Code: <strong>{status.session.code}</strong>

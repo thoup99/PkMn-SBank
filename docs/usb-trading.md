@@ -1,11 +1,11 @@
 ---
-title: USB Sword and Shield hardware test
+title: USB Sword Shield and Legends Z-A hardware tests
 ---
-# Phase 5: real Sword/Shield trade using a USB ESP32-S3
+# Phase 5: real Sword/Shield and Legends Z-A trades using a USB ESP32-S3
 
-The website can start **one real Sword/Shield Link Trade** using the existing
+The website can start **one real Sword/Shield or Legends Z-A Link Trade** using the existing
 pokeldn engine. The only supported website host is Raspberry Pi 5 with 64-bit
-Raspberry Pi OS. Initial physical testing is for Sword/Shield; other games retain
+Raspberry Pi OS. The website supports these two live destinations; other games retain
 simulation/CLI support. No 3DS integration is included.
 
 ## What you need
@@ -16,7 +16,7 @@ simulation/CLI support. No 3DS integration is included.
 - The **wireless radio firmware** `pokeldn-radio-s3.bin`; controller/pad firmware
   does not work as the radio. A USB ID alone does not identify the chip: S3/C3/C6
   share `303a:1001`, so verify the physical S3 board and socket.
-- Your Switch running Sword or Shield, and your own locally installed Switch
+- Your Switch running Sword, Shield, or Legends Z-A, and your own locally installed Switch
   `prod.keys`, required by upstream LDN authentication.
 - At least one empty slot in normal boxes 1–4 for a reserve-Pikachu deposit, or a
   real outgoing record from those normal boxes that will free a slot.
@@ -130,7 +130,7 @@ bash scripts/run_web_pi5.sh
 1. Open `http://<PI-IP>:8000`, save your receiving trainer in Settings, and verify
    box 5 has 30 Pikachus. No manually generated outgoing file is needed.
 2. Open **Trading → Trade with your Switch**. Choose **Sword / Shield** in the
-   **Destination game** dropdown. Other Switch games are listed as unavailable
+   **Destination game** dropdown (see the Z-A test below for Legends Z-A). Other Switch games are listed as unavailable
    until their live website integrations are implemented; the simulator supports
    more destinations. Select a reserve Pikachu
    and the attached native USB port. Choose your own eight-digit Link Code.
@@ -152,6 +152,38 @@ Pikachu. After a durable protocol confirmation, the received record and removal 
 the outgoing record are committed **atomically**. The reserve is unaffected.
 Each website run is bounded to one trade; start a new run for the next trade.
 Do not initiate a second exchange in the same console session.
+
+## Legends Z-A deposit test
+
+1. Update/rebuild/restart the Pi website using the steps above. The matching
+   wireless ESP32-S3 firmware is the same as for Sword/Shield.
+2. In **Trading → Trade with your Switch**, choose **Legends Z-A**. Wait for
+   compatibility checks. Incompatible Pokémon are grayed out with a reason; a
+   Pokémon must pass the same conversion/check again at actual trade startup.
+   Changing the destination or Bank contents refreshes the checks. If checking
+   fails, starting a trade stays disabled. Save your trainer in Settings first.
+3. Select a compatible Bank Pokémon or a reserve Pikachu (automatically given a
+   fresh identity for each real run so repeated deposits do not reuse the same
+   Pikachu PID/encryption constant), the native USB port,
+   and an eight-digit code. Click **Start real Legends Z-A trade** once.
+4. In Legends Z-A, open **Link Play**, choose **local communication → Link Trade**,
+   and search using the same code. Inspect the offered Pokémon and use an
+   expendable Pokémon for your first physical test.
+5. Confirm once and wait through the animation until the console returns to its
+   boxes. The engine records confirmation after the four native completion steps,
+   then waits for a post-trade preview before performing the existing departure
+   handover. Do not begin another trade in the same session. The website may
+   finish later than the game; its overall radio run is bounded to five minutes.
+6. Wait for website **completed**, then verify the incoming Pokémon persists in
+   boxes 1–4 and all 30 reserve Pikachus remain. A real outgoing record is removed
+   only atomically with the confirmed incoming record. For any uncertain outcome,
+   use the common recovery steps below instead of repeating the trade.
+
+Original OT/IDs are retained by the existing converter where supported; compatibility
+here means the existing PKHeX preparation succeeds, not that HOME will accept the
+record. Z-A conversion back into other games remains subject to the helper's
+supported conversion routes. This implementation has automated engine/receipt
+checks; a physical Pi/S3/Switch Z-A test has not been performed in this environment.
 
 ## Stop, disconnect, restart and recovery
 
@@ -200,7 +232,7 @@ Internet-facing or multi-user service.
 - Permission denied: check `dialout`, re-login and make sure no other app/flasher
   holds the port. Do not run two website servers or GUI trade sessions together.
 - No partner: check local rather than online communication, matching code,
-  antenna, distance, and correct game. The first implementation is Sword/Shield.
+  antenna, distance, and correct game. Select the matching Sword/Shield or Legends Z-A destination.
 - Full normal boxes: make space before starting; the reserve is never an incoming
   destination. An uncommitted received file stays in recovery storage.
 - Missing dependencies/helper: rerun the setup script, then restart the website.
