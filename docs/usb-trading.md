@@ -129,7 +129,10 @@ bash scripts/run_web_pi5.sh
 
 1. Open `http://<PI-IP>:8000`, save your receiving trainer in Settings, and verify
    box 5 has 30 Pikachus. No manually generated outgoing file is needed.
-2. Open **Trading → Real USB trade — Sword / Shield**. Select a reserve Pikachu
+2. Open **Trading → Trade with your Switch**. Choose **Sword / Shield** in the
+   **Destination game** dropdown. Other Switch games are listed as unavailable
+   until their live website integrations are implemented; the simulator supports
+   more destinations. Select a reserve Pikachu
    and the attached native USB port. Choose your own eight-digit Link Code.
 3. Press **Start real Sword/Shield trade** once. This opens a real radio session,
    not the separate Phase 4 simulator below it.
