@@ -17,7 +17,7 @@ export default function KeysSettings() {
         onClick={() => fileInput.current?.click()}>
         {busy ? "Installing keys…" : "Upload prod.keys"}
       </button>
-      <span role="status">{installed === null ? "Checking keys…" : installed ? "Keys present on the Pi" : "Keys not present or unreadable"}</span>
+      <span role="status" className={installed === null ? undefined : installed ? "keys-status-present" : "keys-status-missing"}>{installed === null ? "Checking keys…" : installed ? "Keys are present" : "Keys not uploaded"}</span>
     </div>
     <input ref={fileInput} type="file" hidden aria-label="prod.keys file" disabled={busy} onChange={async e => {
         const input = e.currentTarget, file = input.files?.[0];

@@ -1165,3 +1165,11 @@ dialog {
   gap: 0.75rem;
   margin: 1rem 0;
 }
+
+.keys-status-missing {
+  color: #b42318;
+}
+
+.keys-status-present {
+  color: #18723c;
+}
