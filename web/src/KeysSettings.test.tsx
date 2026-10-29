@@ -6,10 +6,10 @@ it('uploads a file and displays installation status without its contents',async(
  const fetcher=vi.fn().mockImplementation((_url,options)=>Promise.resolve({ok:true,json:async()=>({installed:options?.method==='PUT'})}));
  vi.stubGlobal('fetch',fetcher);
  render(<KeysSettings/>);
- await screen.findByText('Keys not present or unreadable');
+ await screen.findByText('Keys not uploaded');
  const file=new File(['synthetic secret'], 'prod.keys');
  await userEvent.upload(screen.getByLabelText('prod.keys file'),file);
- expect(await screen.findByText('Keys present on the Pi')).toBeInTheDocument();
+ expect(await screen.findByText('Keys are present')).toBeInTheDocument();
  const upload=fetcher.mock.calls.find(call=>call[1]?.method==='PUT');
  expect(upload?.[1].body).toBe(file);
  expect(screen.queryByText('synthetic secret')).not.toBeInTheDocument();
@@ -17,12 +17,12 @@ it('uploads a file and displays installation status without its contents',async(
 it('shows an upload failure and clears the file selection',async()=>{
  vi.stubGlobal('fetch',vi.fn().mockImplementation((_url,options)=>Promise.resolve({ok:!options?.method,json:async()=>options?.method?{detail:'Invalid keys; previous file kept.'}:{installed:true}})));
  render(<KeysSettings/>);
- await screen.findByText('Keys present on the Pi');
+ await screen.findByText('Keys are present');
  const input=screen.getByLabelText('prod.keys file') as HTMLInputElement;
  await userEvent.upload(input,new File(['invalid'],'prod.keys'));
  expect(await screen.findByRole('alert')).toHaveTextContent('previous file kept');
  expect(input.value).toBe('');
- expect(screen.getByText('Keys present on the Pi')).toBeInTheDocument();
+ expect(screen.getByText('Keys are present')).toBeInTheDocument();
 });
 
 it('opens the native file prompt from the visible upload button', async () => {
@@ -34,5 +34,5 @@ it('opens the native file prompt from the visible upload button', async () => {
  expect(button).toBeVisible();
  await userEvent.click(button);
  expect(openPicker).toHaveBeenCalledOnce();
- expect(await screen.findByRole('status')).toHaveTextContent('Keys not present or unreadable');
+ expect(await screen.findByRole('status')).toHaveTextContent('Keys not uploaded');
 });
