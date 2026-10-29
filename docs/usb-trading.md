@@ -266,3 +266,16 @@ the same Recover receipt workflow and first-free-slot placement as other games.
 The host uses the upstream Arceus session, clock, data exchange, and game-channel
 settings. Physical Pi/ESP32-S3/Switch validation remains required; automated tests
 exercise the protocol and persistence boundaries without a console.
+
+
+## Brilliant Diamond / Shining Pearl
+
+Select Brilliant Diamond / Shining Pearl and start the website trade before
+entering the local Union Room with the displayed eight-digit password. Use Y,
+Communicate, Trade Pokémon, accept the greeting, and choose/confirm your Pokémon.
+After the animation returns you to the box, highlight another Pokémon once so
+the host can verify that saving finished. Do not confirm a second trade.
+The bounded host will not offer another Pokémon. If you leave before that
+verification, the run remains uncertain and keeps the original Bank record.
+Use recovery controls after checking the actual result on the console.
+Physical hardware validation is still required.

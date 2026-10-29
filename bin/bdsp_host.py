@@ -78,6 +78,8 @@ def build_parser():
                     help="answer the ready-ok, after which the console writes its save")
     ap.add_argument("--trainer", default="POKELDN:41234:23117", metavar="NAME:TID:SID",
                     help="our trade trainer record")
+    ap.add_argument("--one-trade-receipt", default=None)
+    ap.add_argument("--received", default=None)
     ap.add_argument("--save-theirs", default=None, metavar="PREFIX",
                     help="write the Pokemon the console offers in trade N to PREFIX_N.pb8")
     ap.add_argument("--approach-delay", type=float, default=0.0,
@@ -95,6 +97,8 @@ def build_parser():
 def main(argv=None):
     ap = build_parser()
     args = ap.parse_args(argv)
+    if args.one_trade_receipt and (len(args.offer) != 1 or not args.received or not args.complete_trade or args.online or args.for_receiver or args.trade_back or args.fresh_pid):
+        ap.error("bounded mode requires one ordinary offer, --received and --complete-trade")
     trade_back.check(ap, args, "--offer", "--online", "--for-receiver")
     if args.online and args.offer:
         print("[bh] --online offers the partner's Pokemon; --offer is ignored")
@@ -145,6 +149,10 @@ def main(argv=None):
                                   else None)
 
     def save_theirs(n, raw):
+        if args.one_trade_receipt:
+            from pokeldn.app.trade_receipt import write_candidate
+            write_candidate(args.received, raw)
+            return
         if prefix:
             write_file(f'{prefix}_{n}.pb8', raw)
 
@@ -159,7 +167,8 @@ def main(argv=None):
     partner = TradePartner(offers or bytes(0), tname, int(tid), int(sid), complete=args.complete_trade,
                            approach_delay=args.approach_delay, state=args.state,
                            recruiting=args.recruiting, save_theirs=save_theirs, record=record,
-                           remote=remote)
+                           remote=remote, trade_limit=1 if args.one_trade_receipt else 0,
+                           confirmed=lambda received,offered: __import__('pokeldn.app.trade_receipt',fromlist=['write_receipt']).write_receipt(args.one_trade_receipt,received,offered,game='bdsp'))
     trading = bool(offers) or remote is not None
     on_game = partner.game if trading else None
 
@@ -205,10 +214,13 @@ def main(argv=None):
                 joins_seen = host.join_events
                 _, ip, mac, _ = present[-1]
                 print(f"[bh] t={now:7.2f} *** CONSOLE ASSOCIATED *** ip={ip} mac={bytes(mac).hex()}")
-                out += session.seat(ip, mac, now)
+                if not args.one_trade_receipt or session.joiner is None and joins_seen == 1:
+                    out += session.seat(ip, mac, now)
             for payload, src_ip in host.recv():
                 out += session.receive(payload, src_ip, now)
             out += session.tick(now)
+            if args.one_trade_receipt and partner.finished:
+                break
             for pkt, ip in out:
                 host.send(pkt, ip)
             if now - last_status >= 10:

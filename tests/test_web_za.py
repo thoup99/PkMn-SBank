@@ -103,7 +103,7 @@ def test_compatibility_api_and_demo(usb,monkeypatch,tmp_path):
     client=TestClient(module.create_app(data_dir=store.root))
     response=client.get('/api/usb/compatibility?game=za')
     assert response.status_code==200 and len(response.json()['entries'])==1
-    assert client.get('/api/usb/compatibility?game=bdsp').status_code==422
+    assert client.get('/api/usb/compatibility?game=lgpe').status_code==422
     demo=TestClient(module.create_app(data_dir=tmp_path/'demo',mode='demo'))
     assert demo.get('/api/usb/compatibility?game=za').json()=={'game':'za','entries':[]}
 
