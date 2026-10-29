@@ -117,3 +117,17 @@ it('returns to the chosen Bank Pokémon when generated mode is unchecked',async(
  await user.click(generated);expect(outgoing).toBeDisabled();
  await user.click(generated);expect(outgoing).toBeEnabled();expect(outgoing).toHaveValue('pika');
 });
+
+it('uses three Pokémon symbols for Let’s Go instead of an eight-digit code',async()=>{
+ const user=userEvent.setup();
+ vi.mocked(fetch).mockImplementation(input=>respond(input,{...status,games:[...status.games,{key:'lgpe',name:"Let's Go",available:true}]}));
+ render(<USBTrading boxes={boxes} onChange={vi.fn()}/>);
+ await user.selectOptions(await screen.findByRole('combobox',{name:'Destination game'}),'lgpe');
+ await user.selectOptions(screen.getByLabelText('Symbol 2'),'eevee');
+ await user.selectOptions(screen.getByLabelText('Symbol 3'),'diglett');
+ expect(screen.queryByLabelText('Eight-digit Link Code')).not.toBeInTheDocument();
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Start real trade'})).toBeEnabled());
+ await user.click(screen.getByRole('button',{name:'Start real trade'}));
+ const call=vi.mocked(fetch).mock.calls.find(c=>String(c[0]).endsWith('/start'));
+ expect(JSON.parse(call?.[1]?.body as string)).toMatchObject({game:'lgpe',code:'pikachu,eevee,diglett'});
+});

@@ -279,3 +279,16 @@ The bounded host will not offer another Pokémon. If you leave before that
 verification, the run remains uncertain and keeps the original Bank record.
 Use recovery controls after checking the actual result on the console.
 Physical hardware validation is still required.
+
+
+## Let’s Go Pikachu / Let’s Go Eevee
+
+Choose Let’s Go, select the three Pokémon symbols in order, and start the website
+trade. On the Switch choose Communicate → Play With Others → Nearby player →
+Link Trade and pick the same symbols. Confirm one exchange and wait for the
+website result. The host records a confirmed receipt only after the console’s
+result message follows the commit exchange. The website uses the existing
+first-free-slot and receipt-recovery behavior; it does not remove your outgoing
+Bank record before confirmation. The host blocks a second game exchange and
+keeps the existing transport active briefly to finish the result response.
+Physical Pi/ESP32-S3/Switch testing is still required.

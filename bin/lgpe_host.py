@@ -107,6 +107,7 @@ def build_parser():
                     help="the trainer id pair written over the identity's")
     ap.add_argument("--scene-id", type=int, default=None,
                     help="the advertised scene id, in place of the one --code gives")
+    ap.add_argument("--one-trade-receipt", default=None)
     ap.add_argument("--received", help="write the peer's offered PB7 here")
     ap.add_argument("--fresh-pid", action="store_true",
                     help="offer every --offer and --next-offer structure under a new PID and encryption constant, "
@@ -194,6 +195,8 @@ def boxed(raw):
 def main(argv=None):
     ap = build_parser()
     args = ap.parse_args(argv)
+    if args.one_trade_receipt and (not args.offer or args.offer == 'echo' or args.next_offer or not args.received or args.online or args.for_receiver or args.trade_back or args.fresh_pid):
+        ap.error("bounded mode requires one ordinary --offer and --received")
     trade_back.check(ap, args, "--offer", "--online", "--for-receiver")
     if args.trade_back and args.offer == "echo":
         ap.error("--trade-back needs a Pokemon file for --offer")
@@ -281,6 +284,8 @@ def main(argv=None):
     t0 = time.monotonic()
     try:
         while True:
+            if session.bounded_done_at is not None and time.monotonic() >= session.bounded_done_at + 2:
+                break
             if time.monotonic() - t0 >= args.seconds:
                 # Stopping between offer and result makes the console refuse the next trade for
                 # 600 s of play: hold until the exchange is settled or the console has left.
@@ -313,6 +318,8 @@ class Session:
         # Online (pokeldn.online): the partner's console's kind 2 answers ours, and the A 2 that
         # starts the console's save waits for both consoles' votes (docs/online.md).
         self.partner = partner
+        self.bounded_done_at = None
+        self.bounded_offer = boxed(Path(args.offer).read_bytes()) if getattr(args,"one_trade_receipt",None) else None
         self.console_offer = None         # the console's kind 2 still owed an answer
         self.sent_remote = None           # the partner record our kind 2 carried
         self.held_vote = None             # the offered clone whose A 2 waits for the partner
@@ -432,6 +439,8 @@ class Session:
                       f"mac={bytes(mac).hex()} name={who!r}")
                 self.record(rec="seat", ip=ip, mac=bytes(mac).hex(), name=bytes(name).hex())
         for payload, src_ip in self.host.recv():
+            if self.bounded_offer is not None and self.peer_ip is not None and src_ip != self.peer_ip:
+                continue
             if not pia3.is_pia3(payload):
                 continue
             if self.peer_ip is None:
@@ -823,6 +832,11 @@ class Session:
                 self.game(pb7.parse_message(r["payload"]))
 
     def game(self, msg):
+        if self.bounded_done_at is not None:
+            return
+        if self.bounded_offer is not None and msg and msg['kind'] == self.offer_kind and pb7.valid(msg['body']):
+            from pokeldn.app.trade_receipt import write_candidate
+            write_candidate(self.args.received, msg['body'])
         if msg is None:
             print("[lgh] game: not a trade message")
             return
@@ -892,6 +906,12 @@ class Session:
                 self.record(rec=f"post_trade_kind{self.result_kind}", step=msg["step"],
                             body=msg["body"].hex(), t=round(self.now(), 3))
                 return
+            if self.bounded_offer is not None:
+                if not self.committed_2 or not self.trade.get('peer_offer'):
+                    raise ValueError("Result arrived before a bounded trade was committed")
+                from pokeldn.app.trade_receipt import write_receipt
+                write_receipt(self.args.one_trade_receipt,self.trade['peer_offer'],self.bounded_offer,game='lgpe')
+                self.bounded_done_at = time.monotonic()
             self.trade["done"] = True
             show_done()
             screen.arrived()
