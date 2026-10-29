@@ -57,6 +57,18 @@ wireless image, verifies its SHA-256 and S3 header, then runs esptool with an
 explicit ESP32-S3 chip guard. Progress and failure details appear on that page.
 The Pi needs Internet access; no Switch keys are required for flashing.
 
+If your connected board does not appear in the list, enter download mode **before
+starting installation**:
+
+1. Hold **BOOT**.
+2. While holding BOOT, press and release **RESET/EN**.
+3. Release **BOOT**.
+4. Click **Refresh boards and status** on the ESP32 page, then select the port
+   that appears. Its name may change when entering download mode.
+
+Do not perform this reset sequence during a flash write. After installation,
+reset or reconnect normally to run the wireless firmware.
+
 Flashing is blocked during active or unresolved USB trades and shares the same
 exclusive USB lock. Do not unplug or restart the website during writing. If the server restarts, the
 page reports an interrupted installation rather than automatically retrying; the

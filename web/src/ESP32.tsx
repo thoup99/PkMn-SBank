@@ -77,6 +77,7 @@ export default function ESP32({demo}: {demo: boolean}) {
       <ol>
         <li>Connect the ESP32-S3 to the Pi using a USB data cable and its native USB/OTG socket, rather than a separate UART socket. Attach the antenna if your board requires one.</li>
         <li>Stop any trade, serial monitor or other application using the board. Recover or resolve any unfinished trade before flashing.</li>
+        <li>If the board does not appear in the list, hold BOOT, press and release RESET/EN while still holding BOOT, then release BOOT. Click <strong>Refresh boards and status</strong> and select the port that appears. Do this before starting installation, never during a flash write.</li>
         <li>Refresh boards, select the port, acknowledge firmware replacement and choose <strong>Install matching firmware</strong>. The Pi needs Internet access to download the matching release and its checksum. No Switch keys are needed for flashing.</li>
         <li>If the log stays at Connecting, hold <strong>BOOT</strong>, tap and release <strong>RESET/EN</strong>, then release BOOT. If the attempt fails, enter BOOT mode before retrying and refresh the port list because its name may change.</li>
         <li>Keep power and USB connected during writing. After completion, reset or reconnect the board normally, then open <a href="#trading">Trading</a> to test the radio connection.</li>
