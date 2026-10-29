@@ -248,14 +248,14 @@ export default function Trading({
               </label>
             ))}
         </div>
-        <label className="setting-row">
-          <span>Include a generated deposit offer</span>
+        <label className="setting-row generated-option">
           <input type="checkbox" checked={selected.some(isGeneratedPikachu)}
             disabled={busy || active || (!selected.some(isGeneratedPikachu) && selected.length === 6)}
             onChange={e => {
               setSelected(ids => e.target.checked ? [...ids.filter(id => !isGeneratedPikachu(id)), GENERATED_PIKACHU_ID] : ids.filter(id => !isGeneratedPikachu(id)));
               setPreview(null);
             }} />
+          <span>Include a generated deposit offer</span>
         </label>
         <p className="muted">This adds a generated Pikachu to the simulation queue without creating a Bank record.</p>
         <div className="trade-actions">
