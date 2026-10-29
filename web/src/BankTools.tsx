@@ -442,7 +442,7 @@ export function StorageHistory() {
     <section className="panel">
       <h2>Bank activity</h2>
       <p className="muted">
-        Bank and simulation activity. Real Switch trading is not connected.
+        Bank, simulation, and real USB trade activity.
       </p>
       {error && <p role="alert">{error}</p>}
       {!events.length && <p>No storage operations yet.</p>}

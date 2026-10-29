@@ -157,6 +157,12 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
             response.headers["Cache-Control"] = "no-store"
         return response
 
+    @app.get("/api/hardware")
+    def hardware_status():
+        if mode == "demo":
+            return {"hardware_connected": False, "hardware_status": "demo", "devices": []}
+        return usb.hardware_status()
+
     @app.get("/api/health")
     def health():
         try:
@@ -164,7 +170,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
             pkhex = True
         except BuilderError:
             pkhex = False
-        return {"status": "ok", "mode": mode, "hardware_connected": False, "pkhex_available": pkhex,
+        return {"status": "ok", "mode": mode, **hardware_status(), "pkhex_available": pkhex,
                 "host_target": "Raspberry Pi 5"}
 
     @app.get("/api/boxes", response_model=list[Box])

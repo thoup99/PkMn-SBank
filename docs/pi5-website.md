@@ -202,3 +202,13 @@ retained if committing a received record fails. The simulator also offers
 Removing the old virtual box does not alter stored Pokémon or snapshots. Existing
 overflow boxes use their real numbering (the previously displayed box 6 is now
 box 5), and old pending Pikachu trades remain recoverable.
+
+
+## Hardware indicators
+
+The dashboard and sidebar automatically refresh native USB detection every three
+seconds and when the browser window regains focus. Connected means an Espressif
+native USB serial port is detected; it does not verify its chip, firmware, serial
+permissions, or the Switch radio link. Polling never opens/resets the serial port,
+so it can run while trading or flashing. Detection failures show Status unavailable
+instead of leaving a stale Connected indicator. Demo mode does not probe hardware.

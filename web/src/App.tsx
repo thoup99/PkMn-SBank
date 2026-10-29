@@ -13,6 +13,13 @@ import {
   StorageSettings,
 } from "./BankTools";
 
+interface Hardware {
+  hardware_connected: boolean;
+  hardware_status: "connected" | "disconnected" | "unsupported" | "unavailable" | "demo";
+  devices: {device: string; description: string}[];
+}
+const unknownHardware: Hardware = {hardware_connected:false, hardware_status:"unavailable", devices:[]};
+
 const pages: [Page, string, string][] = [
   ["dashboard", "Dashboard", "◈"],
   ["boxes", "Pokémon boxes", "▦"],
@@ -164,6 +171,7 @@ export default function App() {
   const [compact, setCompact] = useState(false);
   const [demo, setDemo] = useState(false);
   const [pkhex, setPkhex] = useState(false);
+  const [hardware, setHardware] = useState<Hardware | null>(null);
   const reload = () => setAttempt((a) => a + 1);
   const [game, setGame] = useState("Sword / Shield");
   useEffect(() => {
@@ -186,6 +194,7 @@ export default function App() {
         const info = await health.json();
         setDemo(info.mode === "demo");
         setPkhex(info.pkhex_available);
+        setHardware(info.mode === "demo" ? {...unknownHardware, hardware_status:"demo"} : info.hardware_status ? info : null);
         return response.json();
       })
       .then((data: Box[]) => {
@@ -203,6 +212,38 @@ export default function App() {
       });
     return () => controller.abort();
   }, [attempt]);
+  useEffect(() => {
+    if (status !== "ready" || demo) return;
+    let mounted = true, pending = false;
+    const controller = new AbortController();
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const response = await fetch("/api/hardware", {signal: controller.signal, cache:"no-store"});
+        if (!response.ok) throw new Error("USB status unavailable");
+        const value: Hardware = await response.json();
+        if (!Array.isArray(value.devices) || !["connected", "disconnected", "unsupported", "unavailable", "demo"].includes(value.hardware_status))
+          throw new Error("Invalid USB status");
+        if (mounted) setHardware(value);
+      } catch {
+        if (mounted) setHardware(unknownHardware);
+      } finally {pending = false;}
+    };
+    const visible = () => {if (!document.hidden) refresh();};
+    refresh();
+    const timer = window.setInterval(refresh, 3000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      mounted = false; controller.abort(); window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [status, demo]);
+  const hardwareState = demo ? "demo" : hardware?.hardware_status;
+  const hardwareLabel = hardwareState === "connected" ? "Connected" : hardwareState === "disconnected" ? "Disconnected"
+    : hardwareState === "demo" ? "Demo mode" : hardwareState === "unsupported" ? "Unsupported host" : hardware ? "Status unavailable" : "Checking…";
   const box = boxes.find((b) => b.id === active) ?? boxes[0];
   const all = boxes
     .flatMap((b) => b.slots)
@@ -237,9 +278,9 @@ export default function App() {
           ))}
         </nav>
         <div className="host">
-          <span className="status-dot" /> Website preview
+          <span className={`status-dot hardware-${hardwareState || "checking"}`} /> {demo ? "Website demo" : "Local Bank"}
           <small>Raspberry Pi 5 host</small>
-          <span className="host-tag">NO HARDWARE CONNECTED</span>
+          <span className="host-tag" role="status" aria-label="Sidebar hardware status">USB · {hardwareLabel}</span>
         </div>
         <p className="sidebar-foot">A bridge to your next adventure.</p>
       </aside>
@@ -261,7 +302,7 @@ export default function App() {
                   : "Your Pokémon transfer bridge, at a glance."}
               </p>
             </div>
-            <span className="version">SIMULATED TRADING · 0.3</span>
+            <span className="version">{demo ? "READ-ONLY DEMO" : "LOCAL BANK · USB TRADING"}</span>
           </div>
           <div className="notice">
             <span aria-hidden="true">◉</span>
@@ -278,7 +319,7 @@ export default function App() {
                   trainer in Settings before importing.
                 </>
               )}{" "}
-              Switch trading is not connected.
+              {demo ? "No real trades run in demo mode." : "Use Trading to start a local Switch trade."}
             </span>
           </div>
           {status === "loading" && (
@@ -336,8 +377,9 @@ export default function App() {
                 </div>
                 <div>
                   <span>Hardware</span>
-                  <strong className="text-stat">Disconnected</strong>
-                  <small>ESP32-S3 integration comes later</small>
+                  <strong className="text-stat" role="status" aria-label="Dashboard hardware status">{hardwareLabel}</strong>
+                  <small>{hardwareState === "connected" ? `${hardware?.devices.length || 0} native USB port(s) detected` : hardwareState === "demo" ? "Live hardware checks are disabled" : hardwareState === "disconnected" ? "Connect the board via native USB" : "Check the ESP32 page for setup"}</small>
+                  {hardwareState === "connected" && <small>USB detection only; radio and Switch link not verified</small>}
                 </div>
               </section>
               <section className="panel">

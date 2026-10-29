@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -114,4 +115,42 @@ it('places ESP32 between History and Settings and supports its direct URL',async
  const links=within(nav).getAllByRole('link').map(link=>link.textContent);
  expect(links.slice(-3)).toEqual(['◷History','▣ESP32','⚙Settings']);
  expect(screen.getByRole('link',{name:'ESP32'})).toHaveAttribute('aria-current','page');
+});
+
+it('updates dashboard and sidebar together when USB connects, disconnects or status fails',async()=>{
+ vi.useFakeTimers();
+ window.location.hash='#dashboard';
+ let connected=true, failed=false;
+ const hardware=()=>({hardware_connected:connected,hardware_status:connected?'connected':'disconnected',devices:connected?[{device:'/dev/ttyACM0',description:'Native USB'}]:[]});
+ vi.mocked(fetch).mockImplementation(async input=>{
+  const path=String(input);
+  if(path==='/api/hardware' && failed)throw new Error('offline');
+  return {ok:true,json:async()=>path==='/api/health'?{mode:'bank',pkhex_available:true,...hardware()}:path==='/api/hardware'?hardware():boxes} as Response;
+ });
+ const view=render(<App/>);
+ try {
+  await act(async()=>{await Promise.resolve();});
+  expect(screen.getByLabelText('Dashboard hardware status')).toHaveTextContent('Connected');
+  expect(screen.getByLabelText('Sidebar hardware status')).toHaveTextContent('Connected');
+  expect(screen.queryByText('Switch trading is not connected.')).not.toBeInTheDocument();
+  connected=false;
+  await act(async()=>{await vi.advanceTimersByTimeAsync(3000);});
+  expect(screen.getByLabelText('Dashboard hardware status')).toHaveTextContent('Disconnected');
+  expect(screen.getByLabelText('Sidebar hardware status')).toHaveTextContent('Disconnected');
+  connected=true;
+  await act(async()=>{fireEvent(window,new Event('focus'));});
+  expect(screen.getByLabelText('Dashboard hardware status')).toHaveTextContent('Connected');
+  failed=true;
+  await act(async()=>{await vi.advanceTimersByTimeAsync(3000);});
+  expect(screen.getByLabelText('Dashboard hardware status')).toHaveTextContent('Status unavailable');
+  expect(screen.getByLabelText('Sidebar hardware status')).toHaveTextContent('Status unavailable');
+  expect(screen.getByRole('heading',{level:1,name:'Dashboard'})).toBeInTheDocument();
+ } finally {view.unmount();vi.useRealTimers();}
+});
+it('keeps demo hardware status separate from a real USB connection',async()=>{
+ window.location.hash='#dashboard';
+ render(<App/>);
+ expect(await screen.findByLabelText('Dashboard hardware status')).toHaveTextContent('Demo mode');
+ expect(screen.getByLabelText('Sidebar hardware status')).toHaveTextContent('Demo mode');
+ expect(vi.mocked(fetch).mock.calls.some(call=>String(call[0])==='/api/hardware')).toBe(false);
 });

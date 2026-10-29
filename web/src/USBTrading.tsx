@@ -191,11 +191,11 @@ export default function USBTrading({
             ))}
         </select>
       </label>
-      <label className="setting-row">
-        <span>Use a valid generated Pikachu</span>
+      <label className="setting-row generated-option">
         <input type="checkbox" checked={useGenerated}
           disabled={busy || blocked || (!useGenerated && !available.get(GENERATED_ID)?.compatible)}
           onChange={e => setUseGenerated(e.target.checked)} />
+        <span>Use a valid generated Pikachu</span>
       </label>
       <p className="muted">A generated Pikachu is prepared and validated for the selected game, with a fresh identity for each trade. It does not occupy a Bank slot. Received Pokémon go into boxes 1–4.</p>
       {game && available.get(GENERATED_ID)?.reason && <p className="muted">Generated Pikachu: {available.get(GENERATED_ID)?.reason}</p>}

@@ -62,6 +62,17 @@ class LiveTrading:
     def _read(self):
         with self.store.locked():return copy.deepcopy(self.store._state(self.store._current()).get('live_session'))
 
+    def hardware_status(self):
+        # Enumeration only: polling must never open/reset a board used by a trade or flasher.
+        if not self.host_check():
+            return {'hardware_connected': False, 'hardware_status': 'unsupported', 'devices': []}
+        try:
+            devices = self.devices()
+        except (OSError, ImportError):
+            return {'hardware_connected': False, 'hardware_status': 'unavailable', 'devices': []}
+        return {'hardware_connected': bool(devices),
+                'hardware_status': 'connected' if devices else 'disconnected', 'devices': devices}
+
     def current(self):
         with self.lock:
             session=self._read()
