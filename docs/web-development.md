@@ -61,7 +61,7 @@ Bank duplicate handling, exports, box organization and snapshot recovery. The
 supported server is **Raspberry Pi 5 with 64-bit Raspberry Pi OS only**; other
 computers and phones are browser clients. See [Pi 5 deployment and test steps](pi5-website.md)
 for the feature-branch checkout, installer, launch commands and recovery checklist.
-A bounded Sword/Shield USB hardware-test path is now available in Phase 5; 3DS integration has not started.
+A bounded Sword/Shield and Legends Z-A USB hardware-test path is now available in Phase 5; 3DS integration has not started.
 
 ## Phase 4: simulated trading
 
@@ -93,4 +93,4 @@ legality results, or completed transfers.
 
 ## Phase 5: USB hardware testing
 
-See [USB Sword/Shield testing](usb-trading.md). Use the Pi 5 launcher and native USB ESP32-S3 wireless firmware. The runtime dependencies are installed by the setup script. One confirmed trade produces an atomic Bank exchange; ambiguous exits retain raw recovery files. Physical validation is not claimed by automated tests.
+See [USB Sword/Shield and Z-A testing](usb-trading.md). Use the Pi 5 launcher and native USB ESP32-S3 wireless firmware. The runtime dependencies are installed by the setup script. One confirmed trade produces an atomic Bank exchange; ambiguous exits retain raw recovery files. Physical validation is not claimed by automated tests.

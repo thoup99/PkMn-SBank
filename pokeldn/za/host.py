@@ -93,7 +93,7 @@ class HostSession:
 
     def __init__(self, *, ssid, our_ip, our_mac, guest_ip, code, identity, identity_tail,
                  selection, offer, host_var=None, offer_at=None, log=print, record=None,
-                 clock=time.monotonic, renew_offer=None, partner=None):
+                 clock=time.monotonic, renew_offer=None, partner=None, trade_limit=0):
         self.ssid = bytes(ssid)
         self.our_ip, self.our_mac, self.guest_ip = our_ip, bytes(our_mac), guest_ip
         self.code = code
@@ -154,6 +154,7 @@ class HostSession:
         self.console_pick = None      # the last offer the player chose; a preview is only the cursor
         self.trade_complete = False
         self.trades = 0
+        self.trade_limit = trade_limit
         self.arriving = False         # a trade's animation is running on the console
         self.trade_steps = 0
         self.leave_requests = 0
@@ -350,6 +351,14 @@ class HostSession:
 
     def _on_game(self, proto, inner, now):
         head = inner[:2].hex()
+        if self.trade_limit and self.trades >= self.trade_limit:
+            # Keep acknowledging reliable packets and observe the return to the box, but never
+            # accept a second pick or replace the record needed by the confirmation receipt.
+            if proto == streams.PROTO_RELIABLE and head == MSG_OFFER:
+                self._arrived()
+                self.console_offer = bytes(inner)
+                self.console_offers += 1
+            return
         key = (proto, head, len(inner))
         self.counts[key] = self.counts.get(key, 0) + 1
         if self.counts[key] == 1 or head not in (MSG_SELECTION,):
@@ -418,7 +427,9 @@ class HostSession:
                 show_done()
                 screen.received("za", self.console_pick)
                 self.arriving = True
-                if self.partner is not None:
+                if self.trade_limit and self.trades >= self.trade_limit:
+                    pass  # Keep the exact outgoing offer; do not queue another exchange.
+                elif self.partner is not None:
                     self.partner.done()
                     self.offer = self.preview = self.shown = None
                     self.console_confirmed = self.after_cancel = False

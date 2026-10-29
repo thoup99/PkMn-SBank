@@ -119,8 +119,8 @@ class ScriptedJoiner:
         return out
 
 
-@pytest.mark.parametrize("cancel, queue", [(False, False), (True, False), (False, True)])
-def test_a_whole_trade_against_a_scripted_joiner(monkeypatch, cancel, queue):
+@pytest.mark.parametrize("cancel, queue, bounded", [(False, False, False), (True, False, False), (False, True, False), (False, False, True)])
+def test_a_whole_trade_against_a_scripted_joiner(monkeypatch, cancel, queue, bounded):
     """Preview marked 1, pick marked 0 after the joiner's, every step answered; 0103 moves the round
     on (0xc8dda0, 0x2dc52b4). A queue's second trade previews and picks the next record."""
     board = esp32_sim.SimulatedBoard(esp32_sim.Air())
@@ -133,7 +133,7 @@ def test_a_whole_trade_against_a_scripted_joiner(monkeypatch, cancel, queue):
         ssid=SSID, our_ip=HOST_IP, our_mac=HOST_MAC, guest_ip=JOINER_IP, code="00000000",
         identity=bytes.fromhex("1400") + bytes(104), identity_tail=bytes.fromhex("1403b9018269fb308f"),
         selection=bytes.fromhex("0100") + bytes(1209), offer=[offer, second] if queue else offer,
-        host_var=HOST_VAR,
+        host_var=HOST_VAR, trade_limit=1 if bounded else 0,
         clock=lambda: 0.0, renew_offer=lambda o: o[:9] + bytes([o[9] ^ 0xFF]) + o[10:])
     joiner = ScriptedJoiner(host)
     t = joiner.run(0.1, 0.0)
@@ -186,6 +186,21 @@ def test_a_whole_trade_against_a_scripted_joiner(monkeypatch, cancel, queue):
     radio.drain()
     radio.close()
     assert board.led_looks == [bytes.fromhex("06ff2003b80b")]   # ramp-up, peak 255, 800 ms, 3000 ms
+
+    if bounded:
+        original_pick, original_offer = host.console_pick, host.offer
+        prior = len([x for x in joiner.game_heard() if x[2][:2] == b"\x01\x01"])
+        joiner.game(second[:-1] + b"\x01", t)  # returning cursor is still observed
+        t = joiner.run(t + 1, t)
+        assert not host.arriving and host.console_offer == second[:-1] + b"\x01"
+        joiner.game(second[:-1] + b"\x00", t)
+        joiner.game(bytes.fromhex("0102b90100"), t)
+        for step in ("03", "06", "0b", "0e"):
+            joiner.game(bytes.fromhex("0200b901" + step), t)
+        joiner.run(t + 3, t)
+        assert host.trades == 1 and host.console_pick == original_pick and host.offer == original_offer
+        assert len([x for x in joiner.game_heard() if x[2][:2] == b"\x01\x01"]) == prior
+        return
 
     if queue:
         t = joiner.run(t + za_host.PREVIEW_DELAY, t)

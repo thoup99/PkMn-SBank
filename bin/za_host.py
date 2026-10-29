@@ -70,6 +70,8 @@ def build_parser():
                     help="optional seconds to keep the seat once the console is back on its box after a "
                          "trade, then hand the console the session and close; by default the host "
                          "waits for the console to leave")
+    ap.add_argument("--one-trade-receipt", default=None, metavar="PATH",
+                    help="one ordinary trade only; write a durable receipt after four completion steps")
     online.add_arguments(ap)
     receiver_gift.add_arguments(ap, "--trade-offer")
     trade_back.add_arguments(ap)
@@ -123,6 +125,11 @@ def describe_offer(body):
 def main(argv=None):
     ap = build_parser()
     args = ap.parse_args(argv)
+    if args.one_trade_receipt:
+        if args.online or args.trade_back or args.for_receiver or args.gift_event or args.fresh_pid or len(args.trade_offer) != 1 or not args.offer_out:
+            ap.error("--one-trade-receipt requires one ordinary offer and --offer-out, without online/gifts/tradeback/fresh-pid")
+        if args.hold_after_trade is None:
+            args.hold_after_trade = 2.0
     trade_back.check(ap, args, "--trade-offer", "--online", "--for-receiver")
     if args.online and args.trade_offer:
         print("[za-host] --online offers the partner's Pokemon; --trade-offer is ignored")
@@ -161,6 +168,11 @@ def main(argv=None):
     cap = open_output(args.capture, "w") if args.capture else None
 
     def record(**row):
+        if args.one_trade_receipt and row.get('rec') == 'console_offer':
+            raw = bytes.fromhex(row['data'])
+            if raw[-1] == za_host.OFFER_PICK:
+                from pokeldn.app.trade_receipt import write_candidate
+                write_candidate(args.offer_out, pokemon_service.entity_bytes('za', raw))
         if cap:
             cap.write(json.dumps(row) + "\n")
             cap.flush()
@@ -177,7 +189,7 @@ def main(argv=None):
 
     partner = online.partner("za", args, code=args.code, name=args.trainer_name)
     sessions = {}
-    state = {"done_at": None, "back_at": None, "trades": 0, "closing": None}
+    state = {"done_at": None, "back_at": None, "trades": 0, "closing": None, "admitted": False}
     deadline = time.time() + args.seconds
 
     def pump():
@@ -185,12 +197,16 @@ def main(argv=None):
         for ip in seated - set(sessions):
             if state["closing"] is not None:
                 continue
+            if args.one_trade_receipt and state['admitted']:
+                continue
+            state['admitted'] = True
             print(f"[za-host] a console is seated at {ip}")
             record(rec="seat", ip=ip, t=time.time())
             sessions[ip] = za_host.HostSession(
                 ssid=transport.ssid, our_ip=transport.our_ip, our_mac=transport.our_mac,
                 guest_ip=ip, code=args.code, identity=identity, identity_tail=tail,
                 selection=selection, offer=offers, offer_at=args.offer_at,
+                trade_limit=1 if args.one_trade_receipt else 0,
                 log=print, record=record,
                 renew_offer=(lambda raw: pokemon_service.offer_bytes("za",
                     pokemon_service.prepare("za", raw, fresh=True))) if renew_offer else None,
@@ -214,8 +230,13 @@ def main(argv=None):
                         state["back_at"] = time.time()
                 if args.offer_out and s.trades > done and s.console_pick is not None:
                     # Written once the trade completes; a pick can still be withdrawn.
-                    pokemon_service.save_received(
-                        "za", pokemon_service.trade_path(args.offer_out, s.trades), s.console_pick)
+                    if args.one_trade_receipt:
+                        from pokeldn.app.trade_receipt import write_receipt
+                        write_receipt(args.one_trade_receipt, pokemon_service.entity_bytes('za', s.console_pick), s.offer, game='za')
+                        state.update(trades=s.trades, done_at=time.time(), back_at=None)
+                    else:
+                        pokemon_service.save_received(
+                            "za", pokemon_service.trade_path(args.offer_out, s.trades), s.console_pick)
         for s in list(sessions.values()):
             for data, ip in s.tick():
                 transport.send(data, ip)

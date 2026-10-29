@@ -2,7 +2,7 @@
 
 **A self-hosted Pokémon transfer bridge — move Pokémon between generations, not into permanent storage.**
 
-> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the website now has real Bank storage and a simulated trading workflow for Raspberry Pi 5 testing. A bounded Sword/Shield USB trade path is implemented for Pi/ESP32-S3 hardware testing; physical validation is still required. Appliance startup/hotspot setup and the 3DS companion remain planned.
+> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the website now has real Bank storage and a simulated trading workflow for Raspberry Pi 5 testing. A bounded Sword/Shield and Legends Z-A USB trade path is implemented for Pi/ESP32-S3 hardware testing; physical validation is still required. Appliance startup/hotspot setup and the 3DS companion remain planned.
 
 ## What we're building
 
@@ -65,11 +65,11 @@ The intended appliance can host a local Wi-Fi hotspot for offline use, with the 
 | Raspberry Pi boot service, hotspot, and deployment | **Planned** |
 | Website preparation and session controls | **Phase 4 implemented in simulation** — PKHeX checks; originals stay in Bank |
 | ESP32-S3 setup from the website | **Implemented** — ESP32 page installs matching, checksum-verified wireless firmware and shows setup instructions |
-| Real Switch trades launched from our website | **Phase 5 hardware-test implementation** — bounded Sword/Shield USB session and durable receipt recovery |
+| Real Switch trades launched from our website | **Phase 5 hardware-test implementation** — bounded Sword/Shield and Legends Z-A USB session and durable receipt recovery |
 | CFW 3DS homebrew app and save transfers | **Planned**, after website v1 |
 | Backward-generation / destructive conversion | **Future research** |
 
-Test the website on your Pi using [Raspberry Pi 5 deployment steps](docs/pi5-website.md), then follow [simulated trading tests](docs/simulated-trading.md) or [USB Sword/Shield hardware testing](docs/usb-trading.md). The website server targets Raspberry Pi 5 only; phones/computers connect as browser clients. Refer to the preserved pokeldn documentation for upstream setup and CLI usage.
+Test the website on your Pi using [Raspberry Pi 5 deployment steps](docs/pi5-website.md), then follow [simulated trading tests](docs/simulated-trading.md) or [USB Sword/Shield and Z-A hardware testing](docs/usb-trading.md). The website server targets Raspberry Pi 5 only; phones/computers connect as browser clients. Refer to the preserved pokeldn documentation for upstream setup and CLI usage.
 
 ## Repositories and documentation
 

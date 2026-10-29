@@ -1,4 +1,4 @@
-"""One bounded USB Sword/Shield trade; raw confirmed receipts survive process/server failures."""
+"""One bounded USB Sword/Shield or Legends Z-A trade; raw confirmed receipts survive process/server failures."""
 import base64
 from collections import deque
 import copy
@@ -24,7 +24,7 @@ from pokeldn.web.storage import GAMES,StorageError,durable_write
 
 ACTIVE={'starting','running','stopping'}
 PENDING=ACTIVE|{'interrupted','uncertain','recovery_required'}
-LIVE_GAMES=[{'key': key, 'name': name, 'available': key == 'swsh'}
+LIVE_GAMES=[{'key': key, 'name': name, 'available': key in {'swsh', 'za'}}
             for key, name in GAMES.items() if key not in {'frlg', 'rse'}]
 
 
@@ -41,6 +41,7 @@ class LiveTrading:
         self.process_factory=process_factory or subprocess.Popen
         self.proc=None;self.worker=None;self.lock=threading.RLock();self.logs=deque(maxlen=100)
         self.dummies=DummyOffers(store.root)
+        self.compatibility_cache = {}
 
     def _mutate(self,operation,callback):
         return self.store._commit(operation,callback,trade=True,live=True)
@@ -86,9 +87,53 @@ class LiveTrading:
             finally:
                 os.close(fd)
 
+    def _prepare_offer(self, folder, trainer, entry_id, game, entry=None, *, fresh_dummy=False):
+        if trainer is None:
+            raise pokemon.BuilderError('Save your receiving trainer in Settings first.')
+        dummy = is_dummy(entry_id)
+        entry = None if dummy else entry or bank.find(entry_id, folder=folder)
+        if not dummy and entry is None:
+            raise pokemon.BuilderError('Outgoing Pokémon no longer exists.')
+        reply = self.dummies.get(game, trainer) if dummy else pokemon.SERVICE.move(
+            entry.game, game, bank.data(entry), entry.tracker, trainer)
+        raw = base64.b64decode(reply['data'], validate=True)
+        checked = pokemon.SERVICE.check_bytes(game, raw, fresh=fresh_dummy and dummy)
+        if not reply.get('legal') or not checked.get('legal'):
+            raise pokemon.BuilderError(checked.get('report') or 'PKHeX refused the outgoing offer.')
+        if fresh_dummy and dummy:
+            raw = base64.b64decode(checked['data'], validate=True)
+        wire = swsh_pokemon.encrypt(gen8.load(raw)) if game == 'swsh' else pokemon.offer_bytes('za', raw)
+        return entry, raw, checked, wire
+
+    def compatibility(self, game):
+        if game not in {'swsh', 'za'}:
+            raise StorageError('Choose a connected live trading game.', 422)
+        with self.store.locked():
+            revision = self.store._current()
+            state = self.store._state(revision)
+            key = (str(revision), game, pokemon.SERVICE.home_tracker)
+            if key in self.compatibility_cache:
+                return copy.deepcopy(self.compatibility_cache[key])
+            folder = revision / 'Bank' if revision else None
+            entries = bank.entries(folder) if folder else []
+            results = []
+            def check(entry_id, entry=None):
+                try:
+                    self._prepare_offer(folder, state['trainer'], entry_id, game, entry)
+                    return {'compatible': True, 'reason': ''}
+                except pokemon.BuilderError as error:
+                    return {'compatible': False, 'reason': str(error)}
+            for entry in entries:
+                results.append({'id': entry.id, **check(entry.id, entry)})
+            dummy = check('dummy-pikachu-01')
+            results.extend({'id': f'dummy-pikachu-{n:02}', **dummy} for n in range(1, 31))
+            result = {'game': game, 'entries': results}
+            self.compatibility_cache = {key: result}
+            return copy.deepcopy(result)
+
     def start(self,entry_id,device,code,request_id,*,game='swsh'):
         with self.lock:
-            if game != 'swsh':raise StorageError('Only Sword / Shield is connected to live website trading so far.',422)
+            if game not in {'swsh', 'za'}:raise StorageError('Choose Sword / Shield or Legends Z-A for live trading.',422)
             if not self.host_check():raise StorageError('Live USB trading requires a 64-bit Raspberry Pi 5.',422)
             if not re.fullmatch('[0-9]{8}',code) or not re.fullmatch('[0-9a-f-]{36}',request_id):
                 raise StorageError('Use an eight-digit Link Code and a valid request ID.',422)
@@ -114,38 +159,39 @@ class LiveTrading:
                     space=any(None in b['slots'] for b in state['boxes'][:4])
                     frees=not dummy and any(entry_id in b['slots'] for b in state['boxes'][:4])
                     if not space and not frees:raise StorageError('Boxes 1–4 are full. Make space before depositing.')
-                    reply=self.dummies.get('swsh',trainer) if dummy else pokemon.SERVICE.move(entry.game,'swsh',bank.data(entry),entry.tracker,trainer)
-                    raw=base64.b64decode(reply['data'],validate=True)
-                    checked=pokemon.SERVICE.check_bytes('swsh',raw)
-                    if not reply.get('legal') or not checked.get('legal'):raise StorageError('PKHeX refused the outgoing offer.',422)
-                    wire=swsh_pokemon.encrypt(gen8.load(raw))
-                    session={'id':uuid.uuid4().hex,'request_id':request_id,'owner':self.owner,'mode':'usb','game':'swsh',
+                    entry,raw,checked,wire=self._prepare_offer(folder,trainer,entry_id,game,entry,fresh_dummy=dummy)
+                    session={'id':uuid.uuid4().hex,'request_id':request_id,'owner':self.owner,'mode':'usb','game':game,
                              'status':'starting','entry_id':entry_id,'dummy':dummy,'species':checked.get('species','Pikachu'),
                              'trainer':trainer,'sent_sha256':None if dummy else hashlib.sha256(bank.data(entry)).hexdigest(),
                              'offered_sha256':hashlib.sha256(wire).hexdigest(),'code':code,'device':device,
-                             'started_at':time.time(),'message':'Starting one real Sword/Shield trade.','received_id':None}
+                             'started_at':time.time(),'message':'Starting one real '+GAMES[game]+' trade.','received_id':None}
                     run=self._folder(session);run.mkdir(parents=True,mode=0o700)
-                    durable_write(run/'offer.pk8',raw)
+                    durable_write(run/('offer.'+pokemon.EXTENSIONS[game]),raw)
                     durable_write(run/'session.json',json.dumps(session).encode())
                     state['live_session']=session
                     return copy.deepcopy(session)
-                session=self._mutate('Started USB Sword/Shield trade',prepare)
+                session=self._mutate('Started USB '+GAMES[game]+' trade',prepare)
                 run=self._folder(session)
                 env=dict(os.environ,PYTHONUNBUFFERED='1',POKELDN_MANAGED_RUN='1',POKELDN_RADIO='esp32:'+device)
                 env.pop('POKELDN_L2',None)
                 env.pop('POKELDN_POPUPS',None)
-                argv=[sys.executable,'-u',str(Path(ROOT)/'pokeldn/app/entry.py'),'--run','bin/swsh_host.py',
-                      '--keys',str(keys),'--offer-file',str(run/'offer.pk8'),'--received',str(run/'candidate.pk8'),
+                argv=[sys.executable,'-u',str(Path(ROOT)/'pokeldn/app/entry.py'),'--run',
+                      'bin/swsh_host.py' if game=='swsh' else 'bin/za_host.py',
+                      '--keys',str(keys), '--offer-file' if game=='swsh' else '--trade-offer',
+                      str(run/('offer.'+pokemon.EXTENSIONS[game])),
+                      '--received' if game=='swsh' else '--offer-out',
+                      str(run/('candidate.'+pokemon.EXTENSIONS[game])),
                       '--player-name',session['trainer']['ot'],'--trainer-name',session['trainer']['ot'],
-                      '--trainer-tid',str(session['trainer']['tid']),'--trainer-sid',str(session['trainer']['sid']),
                       '--code',code,'--seconds','300','--one-trade-receipt',str(run/'confirmed.json')]
+                if game=='swsh':
+                    argv.extend(['--trainer-tid',str(session['trainer']['tid']),'--trainer-sid',str(session['trainer']['sid'])])
                 self.logs.clear()
                 self.proc=self.process_factory(argv,cwd=ROOT,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                                                stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace',
                                                bufsize=1,pass_fds=(usb_fd,),start_new_session=True)
                 launched=True
                 def running(folder,state):
-                    state['live_session'].update(status='running',message='In Sword/Shield, use local Y-Comm Link Trade with this Link Code. Complete exactly one trade and wait for the website result.')
+                    state['live_session'].update(status='running',message=('In Sword/Shield, use local Y-Comm Link Trade' if game=='swsh' else 'In Legends Z-A, open Link Play, choose local communication and Link Trade')+' with this Link Code. Complete exactly one trade and wait for the website result.')
                 self._mutate('USB trade process running',running)
                 self.worker=threading.Thread(target=self._worker,args=(session,self.proc,usb_fd),daemon=True)
                 self.worker.start()
@@ -203,11 +249,11 @@ class LiveTrading:
             if path.stat().st_size>20000:raise ValueError('oversized receipt')
             receipt=json.loads(path.read_text())
             data=base64.b64decode(receipt['received'],validate=True)
-            if (receipt['version']!=1 or receipt['game']!='swsh' or receipt['trade']!=1 or
+            if (receipt['version']!=1 or receipt['game']!=session['game'] or receipt['trade']!=1 or
                     receipt['received_sha256']!=hashlib.sha256(data).hexdigest() or
                     receipt['offered_sha256']!=session['offered_sha256']):raise ValueError('receipt mismatch')
-            info=pokemon.SERVICE.check_bytes('swsh',data)
-            received=self.store.receive_record('swsh',data,info,'usb-'+session['id'],sent_id=session['entry_id'],sent_sha256=session['sent_sha256'])
+            info=pokemon.SERVICE.check_bytes(session['game'],data)
+            received=self.store.receive_record(session['game'],data,info,'usb-'+session['id'],sent_id=session['entry_id'],sent_sha256=session['sent_sha256'])
             return self._status(session['id'],'completed','Confirmed trade committed. Incoming Pokémon is in boxes 1–4; the Pikachu reserve stays full.',received_id=received,returncode=returncode)
         except Exception:
             return self._status(session['id'],'recovery_required','Confirmed/raw files are retained. Commit failed; fix storage/helper issues and use Recover receipt.',returncode=returncode)

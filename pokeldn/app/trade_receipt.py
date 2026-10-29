@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 
 
-def write_receipt(path,received,offered):
+def write_receipt(path,received,offered,*,game='swsh'):
     target=Path(path);target.parent.mkdir(parents=True,exist_ok=True)
-    content={'version':1,'game':'swsh','trade':1,'received':base64.b64encode(received).decode(),
+    content={'version':1,'game':game,'trade':1,'received':base64.b64encode(received).decode(),
              'received_sha256':hashlib.sha256(received).hexdigest(),'offered_sha256':hashlib.sha256(offered).hexdigest()}
     tmp=target.with_suffix('.tmp')
     with tmp.open('w') as out:
