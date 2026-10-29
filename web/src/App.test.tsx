@@ -104,3 +104,14 @@ it("shows API failure and retries successfully without fabricated fallback data"
     expect(screen.getByRole("button", { name: /View Pikachu/ })).toBeEnabled(),
   );
 });
+
+it('places ESP32 between History and Settings and supports its direct URL',async()=>{
+ window.location.hash='#esp32';
+ vi.mocked(fetch).mockImplementation(async (input)=>({ok:true,json:async()=>String(input)==='/api/health'?{mode:'demo',pkhex_available:false}:String(input)==='/api/esp32/status'?{supported_host:false,esptool_available:false,release:null,image:null,devices:[],job:null}:boxes} as Response));
+ render(<App/>);
+ expect(await screen.findByRole('heading',{name:'ESP32-S3 wireless firmware'})).toBeInTheDocument();
+ const nav=screen.getByRole('navigation',{name:'Main navigation'});
+ const links=within(nav).getAllByRole('link').map(link=>link.textContent);
+ expect(links.slice(-3)).toEqual(['◷History','▣ESP32','⚙Settings']);
+ expect(screen.getByRole('link',{name:'ESP32'})).toHaveAttribute('aria-current','page');
+});

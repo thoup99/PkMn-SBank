@@ -3,6 +3,7 @@ import type { Box, Page, Pokemon } from "./types";
 import Trading from "./Trading";
 import USBTrading from "./USBTrading";
 import KeysSettings from "./KeysSettings";
+import ESP32 from "./ESP32";
 import { matches, pageFromHash } from "./types";
 import {
   ImportTools,
@@ -17,6 +18,7 @@ const pages: [Page, string, string][] = [
   ["boxes", "Pokémon boxes", "▦"],
   ["trading", "Trading", "⇄"],
   ["history", "History", "◷"],
+  ["esp32", "ESP32", "▣"],
   ["settings", "Settings", "⚙"],
 ];
 const types = [
@@ -580,6 +582,7 @@ export default function App() {
               </a>
             </section>
           )}
+          {status === "ready" && page === "esp32" && <ESP32 demo={demo} />}
           {status === "ready" && page === "settings" && (
             <>
               {!demo && <KeysSettings />}

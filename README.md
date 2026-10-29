@@ -64,6 +64,7 @@ The intended appliance can host a local Wi-Fi hotspot for offline use, with the 
 | Browser-based boxes, imports/exports and backups | **Phase 3 implemented for Pi 5 testing** — real Bank storage; trading deferred |
 | Raspberry Pi boot service, hotspot, and deployment | **Planned** |
 | Website preparation and session controls | **Phase 4 implemented in simulation** — PKHeX checks; originals stay in Bank |
+| ESP32-S3 setup from the website | **Implemented** — ESP32 page installs matching, checksum-verified wireless firmware and shows setup instructions |
 | Real Switch trades launched from our website | **Phase 5 hardware-test implementation** — bounded Sword/Shield USB session and durable receipt recovery |
 | CFW 3DS homebrew app and save transfers | **Planned**, after website v1 |
 | Backward-generation / destructive conversion | **Future research** |

@@ -50,7 +50,21 @@ and check `ls -l /dev/serial/by-id/` or `ls -l /dev/ttyACM*`.
 
 ## Firmware, if the board is not already flashed
 
-Stop any app using the board. The fork currently inherits upstream pokeldn 0.47.0;
+You can now flash from the website: open **ESP32** between **History** and
+**Settings**, refresh boards, select the native USB port, acknowledge replacement,
+and click **Install matching firmware**. The Pi downloads only the matching S3
+wireless image, verifies its SHA-256 and S3 header, then runs esptool with an
+explicit ESP32-S3 chip guard. Progress and failure details appear on that page.
+The Pi needs Internet access; no Switch keys are required for flashing.
+
+Flashing is blocked during active or unresolved USB trades and shares the same
+exclusive USB lock. Do not unplug or restart the website during writing. If the server restarts, the
+page reports an interrupted installation rather than automatically retrying; the
+old child retains the lock until it exits (at most ten minutes). A completed flash
+means esptool finished, not that Switch/radio communication has been verified.
+Use the page’s BOOT/RESET, native-USB, cable and dialout instructions if needed.
+
+The manual alternative follows. Stop any app using the board. The fork currently inherits upstream pokeldn 0.47.0;
 its matching release publishes the merged S3 wireless image and checksums:
 
 ```sh

@@ -20,10 +20,10 @@ export interface Box {
   name: string;
   slots: (Pokemon | null)[];
 }
-export type Page = "dashboard" | "boxes" | "trading" | "history" | "settings";
+export type Page = "dashboard" | "boxes" | "trading" | "history" | "esp32" | "settings";
 export function pageFromHash(): Page {
   const page = window.location.hash.slice(1);
-  return ["dashboard", "boxes", "trading", "history", "settings"].includes(page)
+  return ["dashboard", "boxes", "trading", "history", "esp32", "settings"].includes(page)
     ? (page as Page)
     : "dashboard";
 }
