@@ -219,11 +219,11 @@ def test_destination_catalog_and_unsupported_game_are_explicit(usb):
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=lambda *a,**k:pytest.fail('must not launch an unsupported game'))
  games=manager.current()['games']
  assert {g['key'] for g in games}=={'lgpe','swsh','bdsp','pla','sv','za'}
- assert [g['key'] for g in games if g['available']]==['swsh','pla','sv','za']
+ assert [g['key'] for g in games if g['available']]==['swsh','bdsp','pla','sv','za']
  with pytest.raises(StorageError,match='Choose an available'):
-  manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='bdsp')
+  manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='lgpe')
  client=TestClient(create_app(data_dir=store.root))
- body={'game':'bdsp','entry_id':'generated-pikachu','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
+ body={'game':'lgpe','entry_id':'generated-pikachu','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
  assert client.post('/api/usb/start',json=body,headers={'X-PkMn-SBank':'1'}).status_code==422
  assert client.get('/api/usb/status').json()['games']==games
 

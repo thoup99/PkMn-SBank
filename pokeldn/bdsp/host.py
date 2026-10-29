@@ -532,7 +532,10 @@ class TradePartner:
 
     def __init__(self, offer, trainer_name="POKELDN", trainer_id=41234, secret_id=23117,
                  complete=False, approach_delay=0.0, security_repeat=1.0, state=room.STATE_NONE,
-                 recruiting=0, save_theirs=None, record=None, remote=None):
+                 recruiting=0, save_theirs=None, record=None, remote=None, trade_limit=0, confirmed=None):
+        self.trade_limit = trade_limit
+        self.confirmed = confirmed or (lambda received, offered: None)
+        self.finished = False
         self.offers = [offer] if isinstance(offer, (bytes, bytearray)) else list(offer)
         # Online (pokeldn.online): the partner's console's 0x13 answers this console's, and our
         # ready-ok, after which the console saves, waits for both consoles' (docs/online.md).
@@ -565,6 +568,8 @@ class TradePartner:
         return self.offers[min(self.trades, len(self.offers) - 1)]
 
     def game(self, joiner, g, payload, now):
+        if self.finished:
+            return []
         data_id, fields = g["data_id"], g.get("fields") or {}
         body = payload[room.HEADER_SIZE:]
         if data_id == room.REQUEST:
@@ -595,6 +600,10 @@ class TradePartner:
             receiver_gift.hear(self.remote, room.traner_trainer, body, game="bdsp")
             return [self.trainer]
         if data_id == room.TRADE_POKE:
+            if self.trade_limit and self.arriving and self.trades >= self.trade_limit:
+                self.confirmed(self.their_poke, self.offer)
+                self.finished = True
+                return []
             if self.arriving:                  # the next round's first Pokemon
                 self.our_security, self.their_security, self.arriving = 0, None, False
             self.their_pokes += 1
@@ -649,6 +658,8 @@ class TradePartner:
         return []
 
     def tick(self, joiner, now):
+        if self.finished:
+            return []
         out = []
         if self.remote is not None and self.their_security is None and not self.arriving:
             theirs = self.remote.theirs()
