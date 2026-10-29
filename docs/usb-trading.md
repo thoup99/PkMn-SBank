@@ -246,3 +246,23 @@ offline, and choose Link Trade with the website’s eight-digit code. Complete
 one exchange and wait for the website result. The host admits one session only,
 retains a durable confirmation receipt, and allows 30 seconds for the console
 to finish its animation before leaving. Hardware validation is still required.
+
+
+## Legends Arceus
+
+Choose **Legends Arceus** in the website’s Trading page, select a compatible Bank
+Pokémon or the generated Pikachu option, and start the USB trade. In Jubilife
+Village, speak to Simona at the trading post, select **I want to trade Pokémon**,
+then **Someone nearby**, and enter the website’s eight-digit Link Code.
+
+Complete one exchange. Keep the host running through the animation and wait for
+the website result. This mode admits one session and one exchange, durably saves
+the offered incoming PA8 before responding, and records confirmation only after
+phases 3 and 6 and closure of the trade phase channel. It continues transport
+acknowledgements for up to 30 seconds after confirmation without offering another
+trade. Unconfirmed runs retain the original Bank Pokémon; confirmed receipts use
+the same Recover receipt workflow and first-free-slot placement as other games.
+
+The host uses the upstream Arceus session, clock, data exchange, and game-channel
+settings. Physical Pi/ESP32-S3/Switch validation remains required; automated tests
+exercise the protocol and persistence boundaries without a console.
