@@ -168,7 +168,7 @@ export default function USBTrading({
           ))}
         </select>
       </label>
-      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield and Legends Z-A. Other destinations can be previewed in the simulator below.</p>
+      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield, Scarlet / Violet, and Legends Z-A. Other destinations can be previewed in the simulator below.</p>
       <label className="trade-field">
         Outgoing Pokémon
         <select
@@ -272,7 +272,7 @@ export default function USBTrading({
             })
           }
         >
-          {game === "swsh" ? "Start real Sword/Shield trade" : game === "za" ? "Start real Legends Z-A trade" : "Start real trade"}
+          {game === "swsh" ? "Start real Sword/Shield trade" : game === "sv" ? "Start real Scarlet/Violet trade" : game === "za" ? "Start real Legends Z-A trade" : "Start real trade"}
         </button>
       </div>
       {status?.session && (

@@ -318,6 +318,7 @@ def build_parser():
     ap.add_argument("--fresh-pid", action="store_true",
                     help="offer each record under a new PID and encryption constant, shiny state "
                          "kept, so a save that took it before takes it again")
+    ap.add_argument("--one-trade-receipt", default=None, help="durable receipt for one bounded ordinary trade")
     ap.add_argument("--trade-offer", action="append", default=[],
                     help="a file holding the 348-byte record this host offers (raw, or hex text; "
                          "a 352-byte game message is stripped of its header). With it the host "
@@ -490,6 +491,10 @@ def prepare_raid(ap, args):
 def main(argv=None):
     ap = build_parser()
     args = ap.parse_args(argv)
+    if args.one_trade_receipt:
+        if len(args.trade_offer) != 1 or not args.offer_out or args.online or args.for_receiver or args.trade_back or args.raid_seed is not None or args.fresh_pid or args.offer_set or args.offer_dump:
+            ap.error("--one-trade-receipt requires one ordinary offer and --offer-out")
+    admitted = False
     trade_back.check(ap, args, "--trade-offer", "--online", "--for-receiver", "--raid-seed")
     raiding = args.raid_seed is not None
     raid_group = prepare_raid(ap, args) if raiding else None
@@ -597,6 +602,9 @@ def main(argv=None):
                 stages[ip].partner.hear(fields)
 
     def report_offer(ip, body):
+        if args.one_trade_receipt:
+            from pokeldn.app.trade_receipt import write_candidate
+            write_candidate(args.offer_out, pokemon_service.entity_bytes('sv', body))
         try:
             print(f"[sv] {ip}: offers {pokemon.describe(pokemon.from_wire(body))}")
         except ValueError as exc:
@@ -604,6 +612,8 @@ def main(argv=None):
 
     def keep_received(ip, body, n):
         """Written once the trade completes; an offer can still be withdrawn."""
+        if args.one_trade_receipt:
+            return  # Candidate was already durably written before confirmation.
         if args.offer_out and body is not None:
             path = pokemon_service.trade_path(args.offer_out, n)
             pokemon_service.save_received("sv", path, body)
@@ -1247,6 +1257,10 @@ def main(argv=None):
                                   f"the console is leaving")
                         if (msg.protocol == PROTO_SESSION and msg.payload
                                 and msg.payload[0] == SESSION_JOIN_REQUEST):
+                            if args.one_trade_receipt:
+                                if admitted:
+                                    continue
+                                admitted = True
                             if args.net_property:
                                 # A rejoin re-arms the property; re-arming on Net 0x12 would never
                                 # stop, since the 0x11 repeats.
@@ -1457,6 +1471,12 @@ def main(argv=None):
                                         trades_done[src_ip] = st.trades
                                         keep_received(src_ip, (st.joiner_offers or [None])[-1],
                                                       st.trades)
+                                        if args.one_trade_receipt:
+                                            from pokeldn.app.trade_receipt import write_receipt
+                                            write_receipt(args.one_trade_receipt,
+                                                pokemon_service.entity_bytes('sv', st.joiner_offer),
+                                                trade_offers[0], game='sv')
+                                            deadline = min(deadline, time.time() + 30)
                                         show_done()
                                         screen.received("sv", (st.joiner_offers or [None])[-1])
                                         if st.done:
