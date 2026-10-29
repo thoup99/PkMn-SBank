@@ -153,11 +153,11 @@ it("downloads selected and all box ZIPs, and disables an empty box", async () =>
   await user.click(screen.getByRole('button',{name:'Export this box'}));
   await waitFor(()=>expect(revoke).toHaveBeenCalledWith('blob:zip'));
   expect(fetch).toHaveBeenLastCalledWith('/api/boxes/1/export');
-  expect(downloads[0]).toBe('pkm-ownbank-box-01.zip');
+  expect(downloads[0]).toBe('pkmn-ownbank-box-01.zip');
   await user.click(screen.getByRole('button',{name:'Export all boxes'}));
   expect(fetch).toHaveBeenLastCalledWith('/api/boxes/export');
   await waitFor(()=>expect(revoke).toHaveBeenCalledTimes(2));
-  expect(downloads[1]).toBe('pkm-ownbank-boxes.zip');
+  expect(downloads[1]).toBe('pkmn-ownbank-boxes.zip');
   rerender(<BoxExports box={{...boxes[0],slots:Array(30).fill(null)}} boxes={boxes}/>);
   expect(screen.getByRole('button',{name:'Export this box'})).toBeDisabled();
   expect(screen.getByRole('button',{name:'Export all boxes'})).toBeEnabled();

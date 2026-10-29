@@ -153,7 +153,7 @@ Stop the website first. Preserve a copy of the existing data folder if the disk
 has enough space. Copy the downloaded ZIP to your Pi, then run from the checkout:
 
 ```sh
-.venv-web/bin/python -m pokeldn.web.recover /absolute/path/to/pkm-ownbank-backup.zip
+.venv-web/bin/python -m pokeldn.web.recover /absolute/path/to/pkmn-ownbank-backup.zip
 bash scripts/run_web_pi5.sh
 ```
 

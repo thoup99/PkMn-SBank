@@ -268,7 +268,7 @@ export default function App() {
         <a className="brand" href="#dashboard">
           <span className="brand-mark">S</span>
           <span>
-            PkM OwnBank<small>YOUR NEXT GENERATION</small>
+            PkMn OwnBank<small>YOUR NEXT GENERATION</small>
           </span>
         </a>
         <nav aria-label="Main navigation">
@@ -289,7 +289,6 @@ export default function App() {
           <small>Raspberry Pi 5 host</small>
           <span className="host-tag" role="status" aria-label="Sidebar hardware status">USB · {hardwareLabel}</span>
         </div>
-        <p className="sidebar-foot">A bridge to your next adventure.</p>
       </aside>
       <div className="workspace">
         <header className="topbar">
@@ -301,7 +300,7 @@ export default function App() {
         <main>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">PKM OWNBANK / {page.toUpperCase()}</p>
+              <p className="eyebrow">PKMN OWNBANK / {page.toUpperCase()}</p>
               <h1>{pages.find(([id]) => id === page)?.[1]}</h1>
               <p className="subtitle">
                 {page === "boxes"
@@ -715,7 +714,7 @@ export default function App() {
             </>
           )}
           <footer>
-            <span>PkM OwnBank · An unofficial fan project</span>
+            <span>PkMn OwnBank · An unofficial fan project</span>
             <span>A temporary stop. A new adventure.</span>
           </footer>
         </main>

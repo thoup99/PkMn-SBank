@@ -149,12 +149,6 @@ nav a:hover {
   border-radius: 5px;
   padding: 5px 7px;
 }
-.sidebar-foot {
-  font-size: 10px;
-  color: #789795;
-  border-top: 1px solid #2c494d;
-  padding-top: 20px;
-}
 .workspace {
   margin-left: 246px;
   flex: 1;
@@ -793,8 +787,7 @@ dd {
     height: 36px;
     font-size: 24px;
   }
-  .host,
-  .sidebar-foot {
+  .host {
     display: none;
   }
   nav {
