@@ -19,7 +19,7 @@ def test_box_and_mass_exports_preserve_bytes_layout_and_bank(tmp_path, imported)
     response=client.get('/api/boxes/32/export')
     assert response.status_code==200
     assert response.headers['content-type']=='application/zip'
-    assert 'pkm-ownbank-box-32.zip' in response.headers['content-disposition']
+    assert 'pkmn-ownbank-box-32.zip' in response.headers['content-disposition']
     assert response.headers['cache-control']=='no-store'
     with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
         assert len(archive.namelist())==1
