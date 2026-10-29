@@ -15,6 +15,7 @@ interface USBStatus {
   devices: { device: string; description: string }[];
   session: USBSession | null;
   logs: string[];
+  games: { key: string; name: string; available: boolean }[];
 }
 const pending = [
   "starting",
@@ -41,6 +42,7 @@ export default function USBTrading({
   onChange: () => void;
 }) {
   const [status, setStatus] = useState<USBStatus | null>(null),
+    [game, setGame] = useState(""),
     [device, setDevice] = useState(""),
     [code, setCode] = useState("12345678"),
     [entry, setEntry] = useState("dummy-pikachu-01");
@@ -50,6 +52,8 @@ export default function USBTrading({
   const refresh = async () => {
     const result = await api("/api/usb/status");
     setStatus(result);
+    if (result.session && pending.includes(result.session.status))
+      setGame(result.session.game || result.game || "swsh");
     setDevice((current) => current || result.devices[0]?.device || "");
     return result;
   };
@@ -118,6 +122,18 @@ export default function USBTrading({
         </p>
       )}
       <label className="trade-field">
+        Destination game
+        <select value={game} disabled={busy || blocked} onChange={e => setGame(e.target.value)}>
+          <option value="">Choose destination game</option>
+          {(status?.games || []).map(target => (
+            <option key={target.key} value={target.key} disabled={!target.available}>
+              {target.name}{target.available ? "" : " — live trading not connected yet"}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield only. Other destinations can be previewed in the simulator below.</p>
+      <label className="trade-field">
         Outgoing Pokémon
         <select
           value={entry}
@@ -184,6 +200,7 @@ export default function USBTrading({
             blocked ||
             !status?.supported_host ||
             !status?.keys_available ||
+            !status?.games?.some(target => target.key === game && target.available) ||
             !device ||
             !/^\d{8}$/.test(code)
           }
@@ -193,6 +210,7 @@ export default function USBTrading({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                  game,
                   entry_id: entry,
                   device,
                   code,

@@ -14,7 +14,7 @@ from pokeldn.pokemon import BuilderError, _command
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pokeldn.web.dummy import reserve_box
-from pokeldn.web.live import LiveTrading
+from pokeldn.web.live import LiveTrading, LIVE_GAMES
 from pokeldn.web.firmware import FirmwareInstaller
 
 
@@ -103,6 +103,7 @@ class TradeAction(BaseModel):
 
 
 class USBStart(BaseModel):
+    game: Literal["swsh"] = "swsh"
     entry_id: str = Field(min_length=1,max_length=160)
     device: str = Field(min_length=1,max_length=200)
     code: str = Field(pattern=r"^[0-9]{8}$")
@@ -294,12 +295,12 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     @app.get("/api/usb/status")
     def usb_status():
         if mode == "demo":
-            return {"supported_host":False,"keys_available":False,"devices":[],"session":None,"logs":[]}
+            return {"supported_host":False,"keys_available":False,"devices":[],"session":None,"logs":[],"games":LIVE_GAMES}
         return usb.current()
 
     @app.post("/api/usb/start")
     def usb_start(value: USBStart):
-        return usb.start(value.entry_id,value.device,value.code,value.request_id)
+        return usb.start(value.entry_id,value.device,value.code,value.request_id,game=value.game)
 
     @app.post("/api/usb/{session_id}/stop")
     def usb_stop(session_id: str):

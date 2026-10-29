@@ -20,10 +20,12 @@ from pokeldn.swsh import pokemon as swsh_pokemon
 from pokeldn.web.dummy import DummyOffers,is_dummy
 from pokeldn.web.serve import supported_host
 from pokeldn.web.keys import keys_path
-from pokeldn.web.storage import StorageError,durable_write
+from pokeldn.web.storage import GAMES,StorageError,durable_write
 
 ACTIVE={'starting','running','stopping'}
 PENDING=ACTIVE|{'interrupted','uncertain','recovery_required'}
+LIVE_GAMES=[{'key': key, 'name': name, 'available': key == 'swsh'}
+            for key, name in GAMES.items() if key not in {'frlg', 'rse'}]
 
 
 def usb_devices():
@@ -69,7 +71,7 @@ class LiveTrading:
                 session=self._mutate('USB session interrupted; recovery required',interrupt)
             keys=keys_path()
             return {'supported_host':self.host_check(),'keys_available':keys.is_file() and os.access(keys,os.R_OK),
-                    'devices':self.devices() if self.host_check() else [],'game':'swsh',
+                    'devices':self.devices() if self.host_check() else [],'game':'swsh','games':copy.deepcopy(LIVE_GAMES),
                     'session':session,'logs':list(self.logs)}
 
     def install_keys(self, content):
@@ -84,8 +86,9 @@ class LiveTrading:
             finally:
                 os.close(fd)
 
-    def start(self,entry_id,device,code,request_id):
+    def start(self,entry_id,device,code,request_id,*,game='swsh'):
         with self.lock:
+            if game != 'swsh':raise StorageError('Only Sword / Shield is connected to live website trading so far.',422)
             if not self.host_check():raise StorageError('Live USB trading requires a 64-bit Raspberry Pi 5.',422)
             if not re.fullmatch('[0-9]{8}',code) or not re.fullmatch('[0-9a-f-]{36}',request_id):
                 raise StorageError('Use an eight-digit Link Code and a valid request ID.',422)
