@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pokeldn.web.dummy import reserve_box
 from pokeldn.web.live import LiveTrading
+from pokeldn.web.firmware import FirmwareInstaller
 
 
 class Pokemon(BaseModel):
@@ -108,6 +109,12 @@ class USBStart(BaseModel):
     request_id: str = Field(min_length=36,max_length=36)
 
 
+class FirmwareStart(BaseModel):
+    device: str = Field(min_length=1, max_length=200)
+    request_id: str = Field(min_length=36, max_length=36)
+    confirmed: bool = Field(strict=True)
+
+
 class USBRecovery(BaseModel):
     resolve_without_confirmation: bool = Field(default=False, strict=True)
 
@@ -121,6 +128,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     store = BankStore(root)
     trading = SimulatedTrading(store)
     usb = LiveTrading(store)
+    firmware = FirmwareInstaller(usb)
     from pokeldn.app.sprites import SpriteCache
     sprites = SpriteCache(folder=root / "sprites")
     app = FastAPI(title="PkMn-SBank", version="0.5.0", description="Pi 5 Bank storage, simulated trading, and single Sword/Shield trades over USB ESP32-S3.")
@@ -300,6 +308,18 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     @app.post("/api/usb/{session_id}/recover")
     def usb_recover(session_id: str,value: USBRecovery):
         return usb.recover(session_id,resolve=value.resolve_without_confirmation)
+
+    @app.get("/api/esp32/status")
+    def firmware_status():
+        if mode == "demo":
+            return {"supported_host": False, "devices": [], "job": None, "release": None, "image": None, "esptool_available": False}
+        return firmware.current()
+
+    @app.post("/api/esp32/flash", status_code=202)
+    def firmware_start(value: FirmwareStart):
+        if not value.confirmed:
+            raise HTTPException(422, "Confirm replacement of the board firmware before installing.")
+        return firmware.start(value.device, value.request_id)
 
     @app.get("/api/{path:path}", include_in_schema=False)
     def unknown_api(path: str):

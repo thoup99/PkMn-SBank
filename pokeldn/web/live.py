@@ -53,7 +53,7 @@ class LiveTrading:
         fd=os.open(self.store.root/'USB.lock',os.O_CREAT|os.O_RDWR,0o600)
         try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except OSError:
-            os.close(fd);raise StorageError('A USB trade process still owns the board. Wait for it to exit or reboot the Pi before recovery.')
+            os.close(fd);raise StorageError('Another USB operation still owns the board. Wait for it to finish before retrying.')
         return fd
 
     def _read(self):
