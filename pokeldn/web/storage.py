@@ -24,6 +24,16 @@ GAMES = {"frlg": "FireRed / LeafGreen", "rse": "Ruby / Sapphire / Emerald", "lgp
          "swsh": "Sword / Shield", "bdsp": "Brilliant Diamond / Shining Pearl",
          "pla": "Legends Arceus", "sv": "Scarlet / Violet", "za": "Legends Z-A"}
 ID = re.compile(r"^[A-Za-z0-9_-]{1,160}$")
+BOX_COUNT = 32
+BOX_SLOTS = 30
+DEFAULT_BOX_NAMES = ["Arrival box", "Ready to move", "Favorites", "Recovery"]
+
+
+def empty_box(index):
+    return {"id": index, "name": DEFAULT_BOX_NAMES[index - 1] if index <= 4 else f"Box {index}",
+            "slots": [None] * BOX_SLOTS}
+
+
 REVISION = re.compile(r"^[0-9a-f]{32}$")
 
 
@@ -84,8 +94,7 @@ class BankStore:
 
     def _state(self, revision, *, verify=True):
         if revision is None:
-            return {"boxes": [{"id": i, "name": name, "slots": [None] * 30} for i, name in
-                              enumerate(["Arrival box", "Ready to move", "Favorites", "Recovery"], 1)],
+            return {"boxes": [empty_box(i) for i in range(1, BOX_COUNT + 1)],
                     "events": [], "trainer": None}
         try:
             state = json.loads((revision / "state.json").read_text())
@@ -113,6 +122,9 @@ class BankStore:
             path = folder / filename
             if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
                 raise StorageError("A Bank snapshot failed its integrity check. Restore a verified backup.", 503)
+        # Expand older snapshots in memory; never rewrite an immutable revision.
+        # Preserve any legacy overflow boxes so an upgrade cannot discard records.
+        state["boxes"].extend(empty_box(i) for i in range(len(state["boxes"]) + 1, BOX_COUNT + 1))
         return state
 
     def _commit(self, operation, mutate, *, recovery=False, trade=False, live=False):
@@ -217,10 +229,9 @@ class BankStore:
                 report = bank.import_file(str(source), {g: state["trainer"] for g in GAMES}, folder=folder)
             added = [e for e in reversed(bank.entries(folder)) if e.id not in before]
             for entry in added:
-                box = next((b for b in state["boxes"] if None in b["slots"]), None)
+                box = next((b for b in state["boxes"][:BOX_COUNT] if None in b["slots"]), None)
                 if box is None:
-                    box = {"id": len(state["boxes"]) + 1, "name": f"Box {len(state['boxes']) + 1}", "slots": [None] * 30}
-                    state["boxes"].append(box)
+                    raise StorageError("All 32 boxes are full. Make space before importing.")
                 box["slots"][box["slots"].index(None)] = entry.id
             # The original name is useful; the transient server upload directory is not.
             for entry in added:
@@ -358,7 +369,7 @@ class BankStore:
             self._commit("Recovered downloaded backup ZIP", apply, recovery=True)
 
     def receive_record(self, game, content, info, receipt, *, sent_id=None, sent_sha256=None):
-        """Atomically route a confirmed receipt to normal boxes 1–4.
+        """Atomically route a confirmed receipt to the first available slot in boxes 1–32.
         The caller must keep raw received bytes durably until this commit succeeds.
         Receipt IDs make recovery/replayed confirmations idempotent.
         """
@@ -378,9 +389,9 @@ class BankStore:
                 bank.remove(outgoing.id,folder=folder)
                 for box in state['boxes']:
                     box['slots']=[None if key==outgoing.id else key for key in box['slots']]
-            target=next((b for b in state['boxes'][:4] if None in b['slots']),None)
-            already_normal=existing and any(existing.id in b['slots'] for b in state['boxes'][:4])
-            if not target and not already_normal:raise StorageError("Boxes 1–4 are full. The received file must remain in recovery storage.")
+            target=next((b for b in state['boxes'][:BOX_COUNT] if None in b['slots']),None)
+            already_normal=existing and any(existing.id in b['slots'] for b in state['boxes'][:BOX_COUNT])
+            if not target and not already_normal:raise StorageError("All 32 boxes are full. The received file must remain in recovery storage.")
             entry=existing or bank._keep(game,content,info,folder,'Confirmed USB trade')
             if not already_normal:
                 for box in state['boxes']:box['slots']=[None if key==entry.id else key for key in box['slots']]

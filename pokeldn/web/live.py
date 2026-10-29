@@ -20,7 +20,7 @@ from pokeldn.swsh import pokemon as swsh_pokemon
 from pokeldn.web.dummy import DummyOffers,is_dummy,GENERATED_ID
 from pokeldn.web.serve import supported_host
 from pokeldn.web.keys import keys_path
-from pokeldn.web.storage import GAMES,StorageError,durable_write
+from pokeldn.web.storage import GAMES,StorageError,durable_write,BOX_COUNT
 
 ACTIVE={'starting','running','stopping'}
 PENDING=ACTIVE|{'interrupted','uncertain','recovery_required'}
@@ -166,9 +166,9 @@ class LiveTrading:
                     if trainer is None:raise StorageError('Save your receiving trainer first.',422)
                     dummy=is_dummy(entry_id);entry=None if dummy else bank.find(entry_id,folder=folder)
                     if not dummy and entry is None:raise StorageError('Outgoing Pokémon no longer exists.',404)
-                    space=any(None in b['slots'] for b in state['boxes'][:4])
-                    frees=not dummy and any(entry_id in b['slots'] for b in state['boxes'][:4])
-                    if not space and not frees:raise StorageError('Boxes 1–4 are full. Make space before depositing.')
+                    space=any(None in b['slots'] for b in state['boxes'][:BOX_COUNT])
+                    frees=not dummy and any(entry_id in b['slots'] for b in state['boxes'][:BOX_COUNT])
+                    if not space and not frees:raise StorageError('All 32 boxes are full. Make space before depositing.')
                     entry,raw,checked,wire=self._prepare_offer(folder,trainer,entry_id,game,entry,fresh_dummy=dummy)
                     session={'id':uuid.uuid4().hex,'request_id':request_id,'owner':self.owner,'mode':'usb','game':game,
                              'status':'starting','entry_id':entry_id,'dummy':dummy,'species':checked.get('species','Pikachu'),
@@ -264,7 +264,7 @@ class LiveTrading:
                     receipt['offered_sha256']!=session['offered_sha256']):raise ValueError('receipt mismatch')
             info=pokemon.SERVICE.check_bytes(session['game'],data)
             received=self.store.receive_record(session['game'],data,info,'usb-'+session['id'],sent_id=session['entry_id'],sent_sha256=session['sent_sha256'])
-            return self._status(session['id'],'completed','Confirmed trade committed. Incoming Pokémon is in boxes 1–4.',received_id=received,returncode=returncode)
+            return self._status(session['id'],'completed','Confirmed trade committed. Incoming Pokémon is in the first available Bank slot.',received_id=received,returncode=returncode)
         except Exception:
             return self._status(session['id'],'recovery_required','Confirmed/raw files are retained. Commit failed; fix storage/helper issues and use Recover receipt.',returncode=returncode)
 

@@ -154,3 +154,25 @@ it('keeps demo hardware status separate from a real USB connection',async()=>{
  expect(screen.getByLabelText('Sidebar hardware status')).toHaveTextContent('Demo mode');
  expect(vi.mocked(fetch).mock.calls.some(call=>String(call[0])==='/api/hardware')).toBe(false);
 });
+
+
+it("navigates all 32 boxes and renders only the selected box's 30 slots", async () => {
+  const fullBank: Box[] = Array.from({length:32}, (_, i) => ({
+    id:i+1, name:`Box ${i+1}`, slots:Array(30).fill(null),
+  }));
+  fullBank[31].slots[29]=pikachu;
+  vi.mocked(fetch).mockImplementation(async (path) => ({
+    ok:true, json:async()=>String(path)==='/api/health'?{mode:'demo'}:fullBank,
+  } as Response));
+  const user=userEvent.setup();
+  render(<App/>);
+  const selector=await screen.findByRole('combobox',{name:'Select box'});
+  expect(within(selector).getAllByRole('option')).toHaveLength(32);
+  await user.selectOptions(selector,'32');
+  expect(await screen.findByRole('button',{name:/View Pikachu/})).toBeEnabled();
+  expect(screen.getAllByLabelText(/Empty slot/)).toHaveLength(29);
+  expect(screen.getByRole('button',{name:'Next box'})).toBeDisabled();
+  await user.click(screen.getByRole('button',{name:'Previous box'}));
+  expect(selector).toHaveValue('31');
+  expect(screen.getAllByLabelText(/Empty slot/)).toHaveLength(30);
+});

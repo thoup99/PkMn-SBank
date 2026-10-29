@@ -6,9 +6,9 @@ from pokeldn.web.app import create_app
 def test_demo_boxes_are_stable_and_read_only():
     client = TestClient(create_app(mode="demo"))
     boxes = client.get('/api/boxes').json()
-    assert len(boxes) == 4
+    assert len(boxes) == 32
     assert all(len(box['slots']) == 30 for box in boxes)
-    pokemon = [p for b in boxes[:4] for p in b['slots'] if p]
+    pokemon = [p for b in boxes for p in b['slots'] if p]
     assert len(pokemon) == 12
     assert len({p['id'] for p in pokemon}) == 12
     assert all(p['trainer'] == 'DEMO' for p in pokemon)
