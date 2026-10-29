@@ -455,10 +455,10 @@ export default function App() {
                   </div>
                 </div>
                 {!demo && (
-                  <>
+                  <div className="box-toolbar">
                     <RenameBox box={box} onChange={reload} />
                     <BoxExports box={box} boxes={boxes} />
-                  </>
+                  </div>
                 )}
                 <div className="filters">
                   <label className="search">
