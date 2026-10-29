@@ -237,3 +237,12 @@ Internet-facing or multi-user service.
 - Missing dependencies/helper: rerun the setup script, then restart the website.
 - Recovery lock busy: the old process still owns the board; wait for it or reboot
   before trying recovery. No automatic retries are performed after ambiguity.
+
+
+## Scarlet / Violet
+
+Select Scarlet / Violet in Trading. Open Poké Portal on the Switch, remain
+offline, and choose Link Trade with the website’s eight-digit code. Complete
+one exchange and wait for the website result. The host admits one session only,
+retains a durable confirmation receipt, and allows 30 seconds for the console
+to finish its animation before leaving. Hardware validation is still required.

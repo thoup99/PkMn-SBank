@@ -17,6 +17,7 @@ from pokeldn import pokemon, gen8
 from pokeldn.app import bank
 from pokeldn.app.paths import ROOT
 from pokeldn.swsh import pokemon as swsh_pokemon
+from pokeldn.sv.trade import load_offer as sv_offer
 from pokeldn.web.dummy import DummyOffers,is_dummy,GENERATED_ID
 from pokeldn.web.serve import supported_host
 from pokeldn.web.keys import keys_path
@@ -24,7 +25,7 @@ from pokeldn.web.storage import GAMES,StorageError,durable_write,BOX_COUNT
 
 ACTIVE={'starting','running','stopping'}
 PENDING=ACTIVE|{'interrupted','uncertain','recovery_required'}
-LIVE_GAMES=[{'key': key, 'name': name, 'available': key in {'swsh', 'za'}}
+LIVE_GAMES=[{'key': key, 'name': name, 'available': key in {'swsh', 'za', 'sv'}}
             for key, name in GAMES.items() if key not in {'frlg', 'rse'}]
 
 
@@ -113,11 +114,11 @@ class LiveTrading:
             raise pokemon.BuilderError(checked.get('report') or 'PKHeX refused the outgoing offer.')
         if fresh_dummy and dummy:
             raw = base64.b64decode(checked['data'], validate=True)
-        wire = swsh_pokemon.encrypt(gen8.load(raw)) if game == 'swsh' else pokemon.offer_bytes('za', raw)
+        wire = swsh_pokemon.encrypt(gen8.load(raw)) if game == 'swsh' else (sv_offer(raw) if game == 'sv' else pokemon.offer_bytes('za', raw))
         return entry, raw, checked, wire
 
     def compatibility(self, game):
-        if game not in {'swsh', 'za'}:
+        if game not in {'swsh', 'za', 'sv'}:
             raise StorageError('Choose a connected live trading game.', 422)
         with self.store.locked():
             revision = self.store._current()
@@ -143,7 +144,7 @@ class LiveTrading:
 
     def start(self,entry_id,device,code,request_id,*,game='swsh'):
         with self.lock:
-            if game not in {'swsh', 'za'}:raise StorageError('Choose Sword / Shield or Legends Z-A for live trading.',422)
+            if game not in {'swsh', 'za', 'sv'}:raise StorageError('Choose an available live trading game.',422)
             if not self.host_check():raise StorageError('Live USB trading requires a 64-bit Raspberry Pi 5.',422)
             if not re.fullmatch('[0-9]{8}',code) or not re.fullmatch('[0-9a-f-]{36}',request_id):
                 raise StorageError('Use an eight-digit Link Code and a valid request ID.',422)
@@ -186,7 +187,7 @@ class LiveTrading:
                 env.pop('POKELDN_L2',None)
                 env.pop('POKELDN_POPUPS',None)
                 argv=[sys.executable,'-u',str(Path(ROOT)/'pokeldn/app/entry.py'),'--run',
-                      'bin/swsh_host.py' if game=='swsh' else 'bin/za_host.py',
+                      'bin/swsh_host.py' if game=='swsh' else 'bin/sv_host.py' if game=='sv' else 'bin/za_host.py',
                       '--keys',str(keys), '--offer-file' if game=='swsh' else '--trade-offer',
                       str(run/('offer.'+pokemon.EXTENSIONS[game])),
                       '--received' if game=='swsh' else '--offer-out',
@@ -201,7 +202,7 @@ class LiveTrading:
                                                bufsize=1,pass_fds=(usb_fd,),start_new_session=True)
                 launched=True
                 def running(folder,state):
-                    state['live_session'].update(status='running',message=('In Sword/Shield, use local Y-Comm Link Trade' if game=='swsh' else 'In Legends Z-A, open Link Play, choose local communication and Link Trade')+' with this Link Code. Complete exactly one trade and wait for the website result.')
+                    state['live_session'].update(status='running',message=('In Sword/Shield, use local Y-Comm Link Trade' if game=='swsh' else 'In Scarlet/Violet, open Poké Portal and Link Trade with offline communication' if game=='sv' else 'In Legends Z-A, open Link Play, choose local communication and Link Trade')+' with this Link Code. Complete exactly one trade and wait for the website result.')
                 self._mutate('USB trade process running',running)
                 self.worker=threading.Thread(target=self._worker,args=(session,self.proc,usb_fd),daemon=True)
                 self.worker.start()
