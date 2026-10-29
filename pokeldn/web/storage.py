@@ -297,7 +297,7 @@ class BankStore:
                         entry = entries[key]
                         filename = re.sub(r"[^A-Za-z0-9._-]", "_", Path(entry.path).name)
                         archive.writestr(f"{prefix}Slot {slot:02d} - {filename}", bank.data(entry))
-            filename = "pkmn-sbank-boxes.zip" if box_id is None else f"pkmn-sbank-box-{box_id:02d}.zip"
+            filename = "pkm-ownbank-boxes.zip" if box_id is None else f"pkm-ownbank-box-{box_id:02d}.zip"
             return filename, output.getvalue()
 
     def history(self):

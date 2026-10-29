@@ -1,12 +1,12 @@
-# PkMn-SBank
+# PkM OwnBank
 
 **A self-hosted Pokémon transfer bridge — move Pokémon between generations, not into permanent storage.**
 
-> **Status: Early development.** PkMn-SBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the website now has real Bank storage and a simulated trading workflow for Raspberry Pi 5 testing. A bounded Sword/Shield and Legends Z-A USB trade path is implemented for Pi/ESP32-S3 hardware testing; physical validation is still required. Appliance startup/hotspot setup and the 3DS companion remain planned.
+> **Status: Early development.** PkM OwnBank is a fork of [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn). The upstream trading engine is present in this repository; the website now has real Bank storage and a simulated trading workflow for Raspberry Pi 5 testing. A bounded Sword/Shield and Legends Z-A USB trade path is implemented for Pi/ESP32-S3 hardware testing; physical validation is still required. Appliance startup/hotspot setup and the 3DS companion remain planned.
 
 ## What we're building
 
-PkMn-SBank (Pokémon Super Bank) aims to make it quick and convenient to move Pokémon between supported games and generations. A Raspberry Pi 5 hosts a local website with familiar Pokémon boxes, while the existing pokeldn trading protocols connect to unmodified Nintendo Switch games. A separate, future homebrew app will enable save-backed transfers on custom-firmware Nintendo 3DS consoles.
+PkM OwnBank aims to make it quick and convenient to move Pokémon between supported games and generations. A Raspberry Pi 5 hosts a local website with familiar Pokémon boxes, while the existing pokeldn trading protocols connect to unmodified Nintendo Switch games. A separate, future homebrew app will enable save-backed transfers on custom-firmware Nintendo 3DS consoles.
 
 The boxes are primarily a **temporary transfer and recovery area**, not a promise of long-term cloud storage. We intend to preserve records until a transfer finishes safely and provide explicit backups and recovery paths.
 
@@ -51,7 +51,7 @@ The intended appliance can host a local Wi-Fi hotspot for offline use, with the 
 
 ### After website v1
 
-- **3DS companion:** Develop [PkMn-SBank-3ds](https://github.com/thoup99/PkMn-SBank-3ds), a separate CFW homebrew application for backed-up save extraction and insertion. Target Ultra Sun / Ultra Moon first, then explore X/Y and Omega Ruby / Alpha Sapphire.
+- **3DS companion:** Develop [PkM OwnBank 3DS](https://github.com/thoup99/PkMn-SBank-3ds), a separate CFW homebrew application for backed-up save extraction and insertion. Target Ultra Sun / Ultra Moon first, then explore X/Y and Omega Ruby / Alpha Sapphire.
 - **Cross-generation transfers:** Coordinate transfers through the staging boxes, with explicit destination compatibility checks.
 - **Legacy Conversion (advanced, optional):** Investigate backward-generation conversions (for example, Gen 8 to Gen 6), prioritizing preservation of OT, IVs, EVs, nature, and compatible battle attributes while clearly identifying reconstructed historical metadata. These transformations are not official transfers and may be impossible for some Pokémon. No authenticity or legality guarantee is implied.
 - **More web features:** Expose additional functionality that already exists in pokeldn, such as raids and gifts, without removing the underlying support in the meantime.
@@ -73,8 +73,8 @@ Test the website on your Pi using [Raspberry Pi 5 deployment steps](docs/pi5-web
 
 ## Repositories and documentation
 
-- **Main fork:** [PkMn-SBank](https://github.com/thoup99/PkMn-SBank) — Linux host application, web frontend/API, original pokeldn backend, and ESP32 firmware.
-- **3DS companion:** [PkMn-SBank-3ds](https://github.com/thoup99/PkMn-SBank-3ds) — separately developed custom-firmware 3DS homebrew app.
+- **Main fork:** [PkM OwnBank](https://github.com/thoup99/PkMn-SBank) — Linux host application, web frontend/API, original pokeldn backend, and ESP32 firmware.
+- **3DS companion:** [PkM OwnBank 3DS](https://github.com/thoup99/PkMn-SBank-3ds) — separately developed custom-firmware 3DS homebrew app.
 - **Upstream project:** [Decryptu/pokeldn](https://github.com/Decryptu/pokeldn).
 - **Preserved upstream README:** [UPSTREAM_README.md](UPSTREAM_README.md) — original overview, supported-game matrix, setup instructions, credits, and disclaimers.
 - **Existing technical documentation:** [docs/](docs/) — game protocols, hardware, command-line usage, and architecture.
@@ -87,4 +87,15 @@ The fork will track upstream changes where practical. New work should be made in
 
 This fork retains pokeldn's **AGPL-3.0** license, along with applicable third-party notices and the credits found in [the upstream README](UPSTREAM_README.md). The separate 3DS companion will document its own licensing before distribution.
 
-PkMn-SBank is an unofficial fan-made project and is **not affiliated with or endorsed by Nintendo, The Pokémon Company, Game Freak, or Creatures**. Pokémon and related names are trademarks of their respective owners. This project does not grant rights to any third-party intellectual property.
+PkM OwnBank is an unofficial fan-made project and is **not affiliated with or endorsed by Nintendo, The Pokémon Company, Game Freak, or Creatures**. Pokémon and related names are trademarks of their respective owners. This project does not grant rights to any third-party intellectual property.
+
+
+## Name and upgrade compatibility
+
+The project is now **PkM OwnBank** (the companion is **PkM OwnBank 3DS**).
+Repository names are to become `PkM-OwnBank` and `PkM-OwnBank-3ds` in GitHub Settings.
+Until that settings change, the repository links above keep their current addresses.
+Existing checkout directories do not need to be renamed. Existing Bank data stays at
+`~/.local/share/pkmn-sbank`; do not move or delete it during this branding update.
+Legacy `PKMN_SBANK_*` configuration remains supported for existing installations.
+`PKM_OWNBANK_MODE` can also select `bank` or `demo` mode.

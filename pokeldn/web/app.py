@@ -119,9 +119,9 @@ class USBRecovery(BaseModel):
 
 def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None,
                mode: str | None = None) -> FastAPI:
-    mode = mode or os.environ.get("PKMN_SBANK_MODE", "bank")
+    mode = mode or os.environ.get("PKM_OWNBANK_MODE", os.environ.get("PKMN_SBANK_MODE", "bank"))
     if mode not in ("bank", "demo"):
-        raise ValueError("PKMN_SBANK_MODE must be bank or demo")
+        raise ValueError("PKM_OWNBANK_MODE must be bank or demo")
     root = data_dir or Path(os.environ.get("POKELDN_DATA", str(Path.home() / ".local/share/pkmn-sbank"))) / "web-bank"
     store = BankStore(root)
     trading = SimulatedTrading(store)
@@ -129,7 +129,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     firmware = FirmwareInstaller(usb)
     from pokeldn.app.sprites import SpriteCache
     sprites = SpriteCache(folder=root / "sprites")
-    app = FastAPI(title="PkMn-SBank", version="0.5.0", description="Pi 5 Bank storage, simulated trading, and single Sword/Shield trades over USB ESP32-S3.")
+    app = FastAPI(title="PkM OwnBank", version="0.5.0", description="Pi 5 Bank storage, simulated trading, and single Sword/Shield trades over USB ESP32-S3.")
 
     @app.exception_handler(StorageError)
     async def storage_error(request, error):
@@ -149,7 +149,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
             if mode == "demo":
                 return JSONResponse(status_code=403, content={"detail": "Demo mode is read-only."})
             origin = request.headers.get("origin")
-            if request.headers.get("x-pkmn-sbank") != "1" or (origin and urlsplit(origin).netloc != request.headers.get("host")):
+            if request.headers.get("x-pkm-ownbank", request.headers.get("x-pkmn-sbank")) != "1" or (origin and urlsplit(origin).netloc != request.headers.get("host")):
                 return JSONResponse(status_code=403, content={"detail": "Use the website on this Pi to change Bank data."})
         response = await call_next(request)
         if request.url.path.startswith("/api/"):
@@ -284,7 +284,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
         if mode == "demo":
             raise HTTPException(404, "Demo mode has no Bank backup.")
         path = store.backup_file()
-        return FileResponse(path, media_type="application/zip", filename="pkmn-sbank-backup.zip",
+        return FileResponse(path, media_type="application/zip", filename="pkm-ownbank-backup.zip",
                             background=BackgroundTask(path.unlink, missing_ok=True))
 
     @app.post("/api/backups/{revision_id}/restore")

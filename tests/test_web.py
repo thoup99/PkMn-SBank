@@ -21,11 +21,11 @@ def test_demo_boxes_are_stable_and_read_only():
 
 
 def test_static_frontend_does_not_swallow_missing_api_or_assets(tmp_path):
-    (tmp_path / 'index.html').write_text('<html>PkMn-SBank</html>')
+    (tmp_path / 'index.html').write_text('<html>PkM OwnBank</html>')
     (tmp_path / 'assets').mkdir()
     (tmp_path / 'assets/app.js').write_text('console.log("demo")')
     client = TestClient(create_app(tmp_path))
-    assert client.get('/').text == '<html>PkMn-SBank</html>'
+    assert client.get('/').text == '<html>PkM OwnBank</html>'
     assert 'console.log' in client.get('/assets/app.js').text
     assert client.get('/api/missing').status_code == 404
     assert client.get('/api/missing').headers['content-type'] == 'application/json'
