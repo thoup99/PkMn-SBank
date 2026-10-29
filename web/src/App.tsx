@@ -582,6 +582,7 @@ export default function App() {
           )}
           {status === "ready" && page === "settings" && (
             <>
+              {!demo && <KeysSettings />}
               <section className="panel settings">
                 <h2>Website preferences</h2>
                 <p className="muted">
@@ -621,7 +622,6 @@ export default function App() {
                   Upload your Switch keys below. Real USB trade controls are on the Trading page.
                 </p>
               </section>
-              {!demo && <KeysSettings />}
               {!demo && <StorageSettings onChange={reload} />}
             </>
           )}

@@ -72,7 +72,11 @@ v6.1 and the existing [firmware instructions](gui.md#build-a-desktop-app).
 
 ## Install keys locally
 
-In website **Settings → Switch keys**, select your own `prod.keys` file. The
+At the top of website **Settings**, under **Switch keys**, click **Upload prod.keys**
+to open your device’s file picker and select your own `prod.keys` file. The label
+next to the button shows whether keys are present; no firmware version is inferred
+from key names. If this control is missing after pulling, rebuild the frontend with
+`bash scripts/setup_web_pi5.sh`, restart the website and reload the browser. The
 Pi validates its text format and required LDN key entries, then installs it with
 owner-only file permissions. Uploads replace existing keys atomically and are
 blocked during an active USB trade or while an orphan process owns the USB lock.
