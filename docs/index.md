@@ -10,7 +10,7 @@ on retail Switch hardware through an ESP32 board as its radio, on USB serial fro
 Android phone or over Bluetooth from an iPhone. These pages document the protocols with decompilation
 citations, disassembly addresses and hardware measurements.
 
-For PkMn-SBank, start with [Raspberry Pi 5 website testing](pi5-website.md),
+For PkM OwnBank, start with [Raspberry Pi 5 website testing](pi5-website.md),
 then [simulated trading](simulated-trading.md) or [USB hardware testing](usb-trading.md).
 Upstream tools retain [app setup](gui.md) and [command-line usage](usage.md).
 

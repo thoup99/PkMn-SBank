@@ -22,7 +22,7 @@ interface Event {
 export async function api(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {
     ...options,
-    headers: { "X-PkMn-SBank": "1", ...options.headers },
+    headers: { "X-PkM-OwnBank": "1", ...options.headers },
   });
   const data = await response.json();
   if (!response.ok)
@@ -142,7 +142,7 @@ export function BoxExports({ box, boxes }: { box: Box; boxes: Box[] }) {
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = all ? "pkmn-sbank-boxes.zip" : `pkmn-sbank-box-${String(box.id).padStart(2, "0")}.zip`;
+      link.download = all ? "pkm-ownbank-boxes.zip" : `pkm-ownbank-box-${String(box.id).padStart(2, "0")}.zip`;
       document.body.appendChild(link);
       try { link.click(); } finally { link.remove(); URL.revokeObjectURL(url); }
     } catch (err) {

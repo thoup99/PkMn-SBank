@@ -134,6 +134,8 @@ def test_mutation_boundaries_and_pi_only_launcher(tmp_path, imported, monkeypatc
     assert client.post('/api/pokemon/nope/move',headers=HEADERS,json={'box_id':1,'slot':30}).status_code==422
     assert client.put('/api/settings/trainer',json={**TRAINER,'language':6},headers=HEADERS).status_code==422
     assert client.get('/api/health').headers['cache-control']=='no-store'
+    assert client.put('/api/settings/trainer',json=TRAINER,headers={'X-PkM-OwnBank':'1'}).status_code==200
+    assert client.get('/openapi.json').json()['info']['title']=='PkM OwnBank'
     assert supported_host('Raspberry Pi 5 Model B Rev 1.0','aarch64','linux')
     assert not supported_host('Raspberry Pi 4 Model B','aarch64','linux')
     assert not supported_host('Raspberry Pi 5 Model B','x86_64','linux')

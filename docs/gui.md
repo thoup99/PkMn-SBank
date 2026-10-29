@@ -3,7 +3,7 @@ title: Desktop builds
 ---
 # Desktop builds
 
-> Fork platform note: PkMn-SBank retains Windows/Linux desktop apps. The mobile/macOS
+> Fork platform note: PkM OwnBank retains Windows/Linux desktop apps. The mobile/macOS
 > sections below document upstream behavior; those standalone apps/builds were removed
 > from this fork. Use the [website](web-development.md) from other devices.
 
