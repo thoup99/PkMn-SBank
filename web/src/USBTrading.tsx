@@ -143,7 +143,7 @@ export default function USBTrading({
       <p className="muted">
         This starts one real Link Trade using the ESP32-S3 on your Pi’s native
         USB serial port. You can choose a Bank Pokémon or enable a generated Pikachu below. The
-        received Pokémon is committed to boxes 1–4 after confirmation; a real
+        received Pokémon is committed to boxes 1–32 after confirmation; a real
         outgoing Bank record leaves only in that same commit.
       </p>
       {error && <p role="alert">{error}</p>}
@@ -197,7 +197,7 @@ export default function USBTrading({
           onChange={e => setUseGenerated(e.target.checked)} />
         <span>Use a valid generated Pikachu</span>
       </label>
-      <p className="muted">A generated Pikachu is prepared and validated for the selected game, with a fresh identity for each trade. It does not occupy a Bank slot. Received Pokémon go into boxes 1–4.</p>
+      <p className="muted">A generated Pikachu is prepared and validated for the selected game, with a fresh identity for each trade. It does not occupy a Bank slot. Received Pokémon go into boxes 1–32.</p>
       {game && available.get(GENERATED_ID)?.reason && <p className="muted">Generated Pikachu: {available.get(GENERATED_ID)?.reason}</p>}
       {game && !compatibility && !compatibilityError && <p role="status">Checking Pokémon compatibility…</p>}
       {compatibilityError && <p role="alert">{compatibilityError}</p>}

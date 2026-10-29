@@ -41,7 +41,7 @@ The intended appliance can host a local Wi-Fi hotspot for offline use, with the 
 ### Website-first release (v1)
 
 1. **Preserve the upstream backend.** Keep all existing pokeldn game support, trading protocols, Bank functionality, PKHeX.Core integration, CLI utilities, tests, and firmware. Remove only iOS, Android, and macOS app/build targets as part of the migration, without deleting shared code.
-2. **Create the website.** Build a responsive browser interface for a dashboard, 30-slot Pokémon boxes, Pokémon details, basic settings, and transfer history.
+2. **Create the website.** Build a responsive browser interface for a dashboard, 32 Pokémon boxes of 30 slots each (960 total), Pokémon details, basic settings, and transfer history.
 3. **Integrate real storage.** Display, organize, import, and export actual records using pokeldn's Bank implementation, with safe persistence, backups, and duplicate handling.
 4. **Implement the trade workflow.** Choose a game, stage compatible Pokémon, prepare them through PKHeX.Core, and monitor a session. Validate the interface with a simulated mode first.
 5. **Connect real Switch trading.** Use existing pokeldn sessions with the ESP32-S3 radio, starting with a supported game such as Sword/Shield; test deposits, withdrawals, disconnects, and recovery.

@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 from pydantic import Field
 from typing import Literal
 from pokeldn.web.trading import SimulatedTrading, TARGETS
-from pokeldn.web.storage import BankStore, StorageError
+from pokeldn.web.storage import BankStore, StorageError, BOX_COUNT, empty_box
 from pokeldn.pokemon import BuilderError, _command
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -58,8 +58,7 @@ SAMPLES = [
 
 
 def demo_boxes() -> list[Box]:
-    boxes = [Box(id=i + 1, name=name, slots=[None] * 30)
-             for i, name in enumerate(["Arrival box", "Ready to move", "Favorites", "Recovery"])]
+    boxes = [Box(**empty_box(i)) for i in range(1, BOX_COUNT + 1)]
     for i, (species, dex, level, types, nature, ability, game) in enumerate(SAMPLES):
         box, slot = (0, i) if i < 8 else (1, i - 8)
         boxes[box].slots[slot] = Pokemon(id=f"demo-{dex}", species=species, dex=dex,

@@ -18,7 +18,7 @@ simulation/CLI support. No 3DS integration is included.
   share `303a:1001`, so verify the physical S3 board and socket.
 - Your Switch running Sword, Shield, or Legends Z-A, and your own locally installed Switch
   `prod.keys`, required by upstream LDN authentication.
-- At least one empty slot in normal boxes 1–4 for a generated-Pikachu deposit, or a
+- At least one empty slot in normal boxes 1–32 for a generated-Pikachu deposit, or a
   real outgoing record from those normal boxes that will free a slot.
 
 This code has automated lifecycle and simulated-radio tests. A physical Pi/S3/
@@ -143,7 +143,7 @@ bash scripts/run_web_pi5.sh
 5. Wait for the game to finish saving and the website to show **completed**.
    The engine allows the upstream save/migration grace period (about 27 seconds
    after protocol confirmation), so the website can finish later than the game.
-6. Verify the received Pokémon appears in **boxes 1–4** and no generated offer has been added to your Bank.
+6. Verify the received Pokémon appears in **boxes 1–32** and no generated offer has been added to your Bank.
    Refresh/restart the website and confirm the record persists. Export a copy and
    download a backup before another test.
 
@@ -175,7 +175,7 @@ Do not initiate a second exchange in the same console session.
    handover. Do not begin another trade in the same session. The website may
    finish later than the game; its overall radio run is bounded to five minutes.
 6. Wait for website **completed**, then verify the incoming Pokémon persists in
-   boxes 1–4, without adding a generated Pikachu to the Bank. A real outgoing record is removed
+   boxes 1–32, without adding a generated Pikachu to the Bank. A real outgoing record is removed
    only atomically with the confirmed incoming record. For any uncertain outcome,
    use the common recovery steps below instead of repeating the trade.
 

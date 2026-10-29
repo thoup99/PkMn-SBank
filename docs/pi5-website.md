@@ -78,7 +78,7 @@ There is no board/key requirement for this phase. Stop with **Ctrl+C**.
 
 ## 3. Test storage
 
-1. The site starts with four normal boxes and the **Your Bank** badge.
+1. The site starts with 32 normal boxes and the **Your Bank** badge.
 2. Open **Settings**, enter the receiving trainer name, underlying 16-bit TID/SID,
    language and gender, then choose **Save receiving trainer**. The TID/SID are not
    the six-digit display ID used by some games. These identify the receiving
@@ -194,7 +194,12 @@ gives each real offer a fresh PID/encryption constant. It never occupies a Bank
 slot. The dropdown is disabled while this option is selected; uncheck it to trade
 a stored Pokémon instead. Your receiving trainer must be saved in Settings.
 
-Confirmed incoming records go into normal boxes 1–4. If those 120 slots are full,
+The Bank has 32 boxes of 30 Pokémon each (960 slots). Imports and confirmed
+incoming trades fill the first empty slot, starting at box 1, slot 1 and continuing
+in box/slot order. Duplicate records remain in their existing slots.
+Existing Banks and older backups automatically expand to 32 boxes while retaining
+Pokémon positions and custom names. Legacy overflow beyond box 32 remains accessible
+for recovery, but new deposits use only boxes 1–32. If those 960 slots are full,
 make room before starting a generated-Pikachu deposit. Raw recovery files are
 retained if committing a received record fails. The simulator also offers
 **Include a generated deposit offer** without creating a stored Pokémon.

@@ -12,15 +12,15 @@ pytestmark=pytest.mark.skipif(os.name!='posix',reason='Pi website targets Linux'
 
 def test_generated_offer_is_not_a_box_and_received_record_goes_to_normal_boxes(tmp_path,imported):
  s=BankStore(tmp_path);s.set_trainer(TRAINER)
- assert len(s.boxes())==4 and all(b['kind']=='bank' for b in s.boxes())
+ assert len(s.boxes())==32 and all(b['kind']=='bank' for b in s.boxes())
  info={'species':'Eevee','species_id':133,'level':10,'legal':True}
  entry=s.receive_record('swsh',b'incoming',info,'receipt-1',sent_id='generated-pikachu')
  assert s.boxes()[0]['slots'][0]['id']==entry
- assert len(s.boxes())==4
+ assert len(s.boxes())==32
  assert s.receive_record('swsh',b'incoming',info,'receipt-1')==entry
- assert len([p for b in s.boxes()[:4] for p in b['slots'] if p])==1
- with pytest.raises(StorageError):s.rename(5,'Other')
- with pytest.raises(StorageError):s.move(entry,5,0,None)
+ assert len([p for b in s.boxes() for p in b['slots'] if p])==1
+ with pytest.raises(StorageError):s.rename(33,'Other')
+ with pytest.raises(StorageError):s.move(entry,33,0,None)
 
 
 def test_confirmed_exchange_removes_outgoing_only_in_same_atomic_commit(tmp_path,imported):
@@ -32,24 +32,30 @@ def test_confirmed_exchange_removes_outgoing_only_in_same_atomic_commit(tmp_path
  assert s.export(incoming)[1]==b'new'
 
 
-def test_full_normal_boxes_refuse_receipt_without_losing_outgoing(tmp_path,imported):
+def test_full_bank_refuses_new_records_but_allows_atomic_exchange(tmp_path,imported,monkeypatch):
  s=BankStore(tmp_path);s.set_trainer(TRAINER)
- # Fill real slots with actual distinct Bank records through existing importer.
- for i in range(120):s.import_file(f'{i}.pk8',str(i).encode())
+ # One batch exercises the real importer without creating 960 historical snapshots.
+ parse=pokemon.SERVICE.import_records
+ records=[parse(str(i).encode(),f'{i}.pk8',{'swsh':TRAINER})['pokemon'][0] for i in range(960)]
+ monkeypatch.setattr(pokemon.SERVICE,'import_records',lambda *args:{'save':'','pokemon':records})
+ s.import_file('full.sav',b'full')
+ assert len(s.boxes())==32 and all(all(b['slots']) for b in s.boxes())
  before=(tmp_path/'CURRENT').read_bytes()
- with pytest.raises(StorageError,match='full'):s.receive_record('swsh',b'new',{'species':'Eevee','species_id':133,'level':10,'legal':True},'full',sent_id='dummy-pikachu-02')
+ info={'species':'Eevee','species_id':133,'level':10,'legal':True}
+ with pytest.raises(StorageError,match='full'):
+  s.receive_record('swsh',b'new',info,'full',sent_id='generated-pikachu')
+ monkeypatch.setattr(pokemon.SERVICE,'import_records',parse)
+ with pytest.raises(StorageError,match='full'):s.import_file('extra.pk8',b'extra')
  assert (tmp_path/'CURRENT').read_bytes()==before
- assert len(s.boxes())==4
- # The fifth real box is still available; removing the virtual reserve deletes no records.
- s.import_file('overflow.pk8',b'overflow')
- assert s.boxes()[4]['id']==5 and s.boxes()[4]['slots'][0]
- s.rename(5,'Overflow')
- assert s.boxes()[4]['name']=='Overflow'
- overflow=s.boxes()[4]['slots'][0]['id']
- first=s.boxes()[0]['slots'][0]['id']
- s.move(overflow,1,0,first)
- assert s.boxes()[0]['slots'][0]['id']==overflow and s.boxes()[4]['slots'][0]['id']==first
- assert s.export(overflow)[1]==b'overflow'
+ # Duplicate imports and receipt replay do not consume another slot.
+ s.import_file('existing.pk8',b'0')
+ outgoing=s.boxes()[31]['slots'][29]['id']
+ raw=s.export(outgoing)[1]
+ received=s.receive_record('swsh',b'new',info,'exchange',sent_id=outgoing,sent_sha256=hashlib.sha256(raw).hexdigest())
+ assert s.boxes()[31]['slots'][29]['id']==received
+ assert s.receive_record('swsh',b'new',info,'exchange')==received
+ assert len(s.boxes())==32
+ with pytest.raises(StorageError):s.export(outgoing)
 
 
 def test_real_pikachu_generated_automatically_and_cached(tmp_path):
@@ -62,5 +68,5 @@ def test_real_pikachu_generated_automatically_and_cached(tmp_path):
  session=manager.stage('swsh',['generated-pikachu'],a['token'])
  session=manager.action(session['id'],'start',session['version'])
  for _ in range(3):session=manager.action(session['id'],'advance',session['version'])
- assert session['status']=='completed' and len(s.boxes())==4
- assert not any(p for b in s.boxes()[:4] for p in b['slots'])
+ assert session['status']=='completed' and len(s.boxes())==32
+ assert not any(p for b in s.boxes() for p in b['slots'])

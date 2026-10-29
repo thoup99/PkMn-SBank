@@ -42,7 +42,7 @@ def test_za_generated_receipt_and_correct_launcher_are_idempotent(usb):
     assert result['game'] == 'za'
     assert store.export(result['received_id'])[1] == incoming
     assert store.boxes()[0]['slots'][0]['game'] == 'Legends Z-A'
-    assert len(store.boxes()) == 4
+    assert len(store.boxes()) == 32
     assert manager.start('generated-pikachu',str(device),'12345678',request,game='za')['id'] == result['id']
     assert len(calls) == 1
 
@@ -91,7 +91,7 @@ def test_wrong_game_receipt_is_retained_without_deposit(usb):
     manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
     manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='za')
     result=wait_for(manager,{'recovery_required'});manager.worker.join(5)
-    assert not any(p for b in store.boxes()[:4] for p in b['slots'])
+    assert not any(p for b in store.boxes() for p in b['slots'])
     assert (manager._folder(result)/'confirmed.json').exists()
 
 
@@ -186,7 +186,7 @@ def test_each_generated_run_gets_a_fresh_identity_for_repeated_deposits(usb):
     assert offers[0][0x1c:0x20]!=offers[1][0x1c:0x20]
     assert pokemon.SERVICE.owner('za',offers[0])['ot']==TRAINER['ot']
     assert pokemon.SERVICE.owner('za',offers[1])['ot']==TRAINER['ot']
-    assert len(store.boxes())==4
+    assert len(store.boxes())==32
 
 
 def test_legacy_pikachu_box_receipt_remains_recoverable_after_box_removal(usb):
@@ -200,5 +200,5 @@ def test_legacy_pikachu_box_receipt_remains_recoverable_after_box_removal(usb):
     write_receipt(run/'confirmed.json',incoming,pokemon.offer_bytes('za',(run/'offer.pa9').read_bytes()),game='za')
     restarted=LiveTrading(store,host_check=lambda:True,devices=devices)
     result=restarted.recover(session['id'])
-    assert result['status']=='completed' and len(store.boxes())==4
+    assert result['status']=='completed' and len(store.boxes())==32
     assert store.export(result['received_id'])[1]==incoming

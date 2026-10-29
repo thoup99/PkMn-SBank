@@ -12,7 +12,7 @@ from pokeldn.swsh import pokemon as swsh_pokemon
 from pokeldn.app.trade_receipt import write_receipt
 from pokeldn.web.storage import BankStore,StorageError
 from pokeldn.web.live import LiveTrading
-from test_web_storage import TRAINER
+from test_web_storage import TRAINER,imported
 
 pytestmark=pytest.mark.skipif(os.name!='posix',reason='Pi USB trade lifecycle uses POSIX locks')
 
@@ -61,13 +61,13 @@ def test_live_generated_confirmed_receipt_is_committed_once_to_normal_boxes(usb)
  result=wait_for(manager,{'completed'})
  assert store.boxes()[0]['slots'][0]['id']==result['received_id']
  assert store.export(result['received_id'])[1]==incoming
- assert len(store.boxes())==4
+ assert len(store.boxes())==32
  assert calls[0].kwargs['env']['POKELDN_RADIO']=='esp32:'+str(device)
  assert '--one-trade-receipt' in calls[0].argv and calls[0].kwargs['pass_fds']
  assert manager.start('generated-pikachu',str(device),'12345678',request)['id']==result['id']
  assert len(calls)==1
  manager.recover(result['id'])
- assert len([p for b in store.boxes()[:4] for p in b['slots'] if p])==1
+ assert len([p for b in store.boxes() for p in b['slots'] if p])==1
 
 
 def test_unconfirmed_exit_never_deposits_candidate_and_requires_operator_resolution(usb):
@@ -78,7 +78,7 @@ def test_unconfirmed_exit_never_deposits_candidate_and_requires_operator_resolut
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
  manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()))
  result=wait_for(manager,{'uncertain'})
- assert not any(p for b in store.boxes()[:4] for p in b['slots'])
+ assert not any(p for b in store.boxes() for p in b['slots'])
  with pytest.raises(StorageError):manager.start('dummy-pikachu-02',str(device),'12345678',str(uuid.uuid4()))
  assert manager.recover(result['id'],resolve=True)['status']=='resolved'
  assert (manager._folder(result)/'candidate.pk8').read_bytes()==incoming
@@ -191,8 +191,8 @@ def test_stop_closes_managed_input_retains_originals_and_releases_board(usb):
  manager.cancel(session['id'])
  result=wait_for(manager,{'uncertain'});manager.worker.join(5)
  assert stopped.is_set() and not manager.worker.is_alive()
- assert not any(p for b in store.boxes()[:4] for p in b['slots'])
- assert len(store.boxes())==4
+ assert not any(p for b in store.boxes() for p in b['slots'])
+ assert len(store.boxes())==32
  assert manager.recover(result['id'],resolve=True)['status']=='resolved'
  fd=manager._usb_lock();os.close(fd)
 
@@ -226,3 +226,22 @@ def test_destination_catalog_and_unsupported_game_are_explicit(usb):
  body={'game':'sv','entry_id':'generated-pikachu','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
  assert client.post('/api/usb/start',json=body,headers={'X-PkMn-SBank':'1'}).status_code==422
  assert client.get('/api/usb/status').json()['games']==games
+
+
+def test_live_deposit_can_start_and_commit_after_four_boxes_are_full(usb, imported, monkeypatch):
+ store,device,devices,incoming=usb
+ parse=pokemon.SERVICE.import_records
+ records=[parse(str(i).encode(),f'{i}.pk8',{'swsh':TRAINER})['pokemon'][0] for i in range(120)]
+ monkeypatch.setattr(pokemon.SERVICE,'import_records',lambda *args:{'save':'','pokemon':records})
+ store.import_file('four-full.sav',b'full')
+ assert all(all(b['slots']) for b in store.boxes()[:4])
+ def factory(argv,**kwargs):
+  raw=Path(argv[argv.index('--offer-file')+1]).read_bytes()
+  write_receipt(argv[argv.index('--one-trade-receipt')+1],incoming,swsh_pokemon.encrypt(gen8.load(raw)))
+  return FakeProcess(argv,**kwargs)
+ manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
+ manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()))
+ result=wait_for(manager,{'completed'})
+ assert store.boxes()[4]['slots'][0]['id']==result['received_id']
+ assert store.export(result['received_id'])[1]==incoming
+ manager.worker.join(5)

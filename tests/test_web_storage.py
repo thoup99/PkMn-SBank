@@ -191,3 +191,47 @@ def test_offline_zip_recovery_survives_broken_current_metadata(tmp_path, importe
     assert store.boxes()[0]['slots'][0]['species']=='Pikachu'
     assert any(b.get('valid') is False for b in store.backups())
     archive.unlink()
+
+
+def test_32_boxes_ordered_deposits_and_gap_reuse(tmp_path, imported):
+    store=BankStore(tmp_path);store.set_trainer(TRAINER)
+    assert [b['id'] for b in store.boxes()]==list(range(1,33))
+    assert all(len(b['slots'])==30 for b in store.boxes())
+    # Import crosses the old four-box limit into box 5.
+    parse=pokemon.SERVICE.import_records
+    from unittest.mock import patch
+    records=[parse(str(i).encode(),f'{i}.pk8',{'swsh':TRAINER})['pokemon'][0] for i in range(121)]
+    with patch.object(pokemon.SERVICE,'import_records',return_value={'save':'','pokemon':records}):
+        store.import_file('batch.sav',b'batch')
+    assert store.boxes()[4]['slots'][0] is not None
+    first=store.boxes()[0]['slots'][0]['id']
+    store.move(first,32,29,None)
+    info={'species':'Eevee','species_id':133,'level':10,'legal':True}
+    received=store.receive_record('swsh',b'incoming',info,'gap',sent_id='generated-pikachu')
+    assert store.boxes()[0]['slots'][0]['id']==received
+    next_id=store.receive_record('swsh',b'next',info,'next',sent_id='generated-pikachu')
+    assert store.boxes()[4]['slots'][1]['id']==next_id
+    store.move(received,32,28,None)
+    store.import_file('fill.pk8',b'fill')
+    assert store.boxes()[0]['slots'][0]['id'] not in (None,received)
+
+
+def test_legacy_four_box_snapshot_expands_on_read_write_and_restore(tmp_path, imported):
+    store=BankStore(tmp_path);store.set_trainer(TRAINER);store.import_file('a.pk8',b'safe')
+    store.rename(2,'Keep my name')
+    revision=store._current();path=revision/'state.json'
+    state=json.loads(path.read_text());state['boxes']=state['boxes'][:4]
+    original=json.dumps(state).encode();path.write_bytes(original)
+    boxes=store.boxes()
+    assert len(boxes)==32 and boxes[1]['name']=='Keep my name'
+    assert path.read_bytes()==original  # reading never mutates a snapshot
+    entry=boxes[0]['slots'][0]['id']
+    archive=store.backup_file()
+    target=BankStore(tmp_path/'recovered');target.restore_archive(archive)
+    assert len(target.boxes())==32 and target.export(entry)[1]==b'safe'
+    store.move(entry,32,29,None)
+    assert len(json.loads((store._current()/'state.json').read_text())['boxes'])==32
+    store.restore(revision.name)
+    assert len(store.boxes())==32 and store.boxes()[0]['slots'][0]['id']==entry
+    assert store.boxes()[1]['name']=='Keep my name'
+    archive.unlink()
