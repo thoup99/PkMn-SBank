@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   ImportTools,
+  BoxExports,
   MoveTools,
   StorageSettings,
   RenameBox,
@@ -138,4 +139,35 @@ it("renames a box", async () => {
   await user.type(screen.getByLabelText("Box name"), "Travel");
   await user.click(screen.getByRole("button", { name: "Rename box" }));
   await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+});
+
+
+it("downloads selected and all box ZIPs, and disables an empty box", async () => {
+  const create=vi.fn().mockReturnValue('blob:zip'), revoke=vi.fn();
+  vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:create,revokeObjectURL:revoke}));
+  const downloads: string[] = [];
+  const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download); });
+  vi.mocked(fetch).mockResolvedValue({ok:true,blob:async()=>new Blob(['zip'])} as Response);
+  const user=userEvent.setup();
+  const {rerender}=render(<BoxExports box={boxes[0]} boxes={boxes}/>);
+  await user.click(screen.getByRole('button',{name:'Export this box ZIP'}));
+  await waitFor(()=>expect(revoke).toHaveBeenCalledWith('blob:zip'));
+  expect(fetch).toHaveBeenLastCalledWith('/api/boxes/1/export');
+  expect(downloads[0]).toBe('pkmn-sbank-box-01.zip');
+  await user.click(screen.getByRole('button',{name:'Export all boxes ZIP'}));
+  expect(fetch).toHaveBeenLastCalledWith('/api/boxes/export');
+  await waitFor(()=>expect(revoke).toHaveBeenCalledTimes(2));
+  expect(downloads[1]).toBe('pkmn-sbank-boxes.zip');
+  rerender(<BoxExports box={{...boxes[0],slots:Array(30).fill(null)}} boxes={boxes}/>);
+  expect(screen.getByRole('button',{name:'Export this box ZIP'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'Export all boxes ZIP'})).toBeEnabled();
+  click.mockRestore();
+});
+
+it("shows ZIP export failures and lets the user retry", async () => {
+  vi.mocked(fetch).mockResolvedValue({ok:false,json:async()=>({detail:'Bank integrity check failed.'})} as Response);
+  render(<BoxExports box={boxes[0]} boxes={boxes}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Export all boxes ZIP'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Bank integrity check failed.');
+  expect(screen.getByRole('button',{name:'Export all boxes ZIP'})).toBeEnabled();
 });

@@ -6,6 +6,7 @@ an immutable revision: import/export records through the website instead.
 import contextlib
 import dataclasses
 import hashlib
+import io
 import json
 import os
 import re
@@ -272,6 +273,32 @@ class BankStore:
             if entry is None:
                 raise StorageError("Pokémon not found.", 404)
             return Path(entry.path).name, bank.data(entry)
+
+    def export_boxes(self, box_id=None):
+        """Export exact stored records from one consistent snapshot, without sidecars."""
+        with self.locked():
+            revision = self._current()
+            state = self._state(revision)
+            boxes = [b for b in state["boxes"] if box_id is None or b["id"] == box_id]
+            if not boxes:
+                raise StorageError("Box not found.", 404)
+            if not any(key for box in boxes for key in box["slots"]):
+                raise StorageError("There are no Pokémon to export.", 422)
+            entries = {entry.id: entry for entry in bank.entries(revision / "Bank")}
+            output = io.BytesIO()
+            with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+                for box in boxes:
+                    # Box names are user supplied: keep all archive paths portable and relative.
+                    name = re.sub(r"[^A-Za-z0-9 _-]", "_", box["name"]).strip(" _-") or "Box"
+                    prefix = f"Box {box['id']:02d} - {name}/" if box_id is None else ""
+                    for slot, key in enumerate(box["slots"], 1):
+                        if key is None:
+                            continue
+                        entry = entries[key]
+                        filename = re.sub(r"[^A-Za-z0-9._-]", "_", Path(entry.path).name)
+                        archive.writestr(f"{prefix}Slot {slot:02d} - {filename}", bank.data(entry))
+            filename = "pkmn-sbank-boxes.zip" if box_id is None else f"pkmn-sbank-box-{box_id:02d}.zip"
+            return filename, output.getvalue()
 
     def history(self):
         with self.locked():

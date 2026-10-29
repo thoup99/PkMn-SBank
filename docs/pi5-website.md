@@ -217,3 +217,17 @@ native USB serial port is detected; it does not verify its chip, firmware, seria
 permissions, or the Switch radio link. Polling never opens/resets the serial port,
 so it can run while trading or flashing. Detection failures show Status unavailable
 instead of leaving a stale Connected indicator. Demo mode does not probe hardware.
+
+
+## Exporting boxes
+
+On **Boxes**, use **Export this box ZIP** for the selected box, or **Export all
+boxes ZIP** for the whole Bank. A single-box ZIP contains its Pokémon files at
+the archive root. The whole-Bank ZIP includes one numbered/named folder per
+occupied box; empty boxes are omitted. Slot numbers prefix filenames so you can
+identify their positions. Search/type filters do not limit exports.
+
+Files retain their exact stored bytes and game-specific extensions (such as
+`.pk8`, `.pk9`, `.pa8` or `.pa9`); they are not renamed to a generic `.pkmn`
+format or converted. Exporting keeps everything in the Bank. These ZIPs contain
+Pokémon files only; use the separate Settings backup ZIP for snapshot recovery.

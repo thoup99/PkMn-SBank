@@ -7,6 +7,7 @@ import ESP32 from "./ESP32";
 import { matches, pageFromHash } from "./types";
 import {
   ImportTools,
+  BoxExports,
   MoveTools,
   RenameBox,
   StorageHistory,
@@ -454,7 +455,10 @@ export default function App() {
                   </div>
                 </div>
                 {!demo && (
-                  <RenameBox box={box} onChange={reload} />
+                  <>
+                    <RenameBox box={box} onChange={reload} />
+                    <BoxExports box={box} boxes={boxes} />
+                  </>
                 )}
                 <div className="filters">
                   <label className="search">

@@ -176,6 +176,10 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
     def boxes():
         return demo_boxes() if mode == "demo" else store.boxes()
 
+    @app.get("/api/boxes/export")
+    def export_all_boxes():
+        return box_archive()
+
     @app.get("/api/boxes/{box_id}", response_model=Box)
     def box(box_id: int):
         return next((b for b in boxes() if (b.id if isinstance(b, Box) else b["id"]) == box_id), None) or missing_box()
@@ -245,6 +249,17 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
         name, data = store.export(entry_id)
         return Response(data, media_type="application/octet-stream",
                         headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    def box_archive(box_id=None):
+        if mode == "demo":
+            raise HTTPException(404, "Demo mode has no stored Pokémon exports.")
+        name, data = store.export_boxes(box_id)
+        return Response(data, media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.get("/api/boxes/{box_id}/export")
+    def export_box(box_id: int):
+        return box_archive(box_id)
 
     @app.get("/api/sprites/{dex}")
     def sprite(dex: int, shiny: bool = False):

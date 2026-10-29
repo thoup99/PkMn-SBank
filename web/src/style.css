@@ -1197,3 +1197,6 @@ dialog {
 .status-dot.hardware-checking {
   background: #91a19c;
 }
+
+.box-exports { margin: 16px 0; }
+.export-actions { display: flex; flex-wrap: wrap; gap: 10px; }

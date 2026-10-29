@@ -128,6 +128,40 @@ export function ImportTools({
     </section>
   );
 }
+export function BoxExports({ box, boxes }: { box: Box; boxes: Box[] }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const download = async (all: boolean) => {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(all ? "/api/boxes/export" : `/api/boxes/${box.id}/export`);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(typeof result.detail === "string" ? result.detail : "Could not export Pokémon.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = all ? "pkmn-sbank-boxes.zip" : `pkmn-sbank-box-${String(box.id).padStart(2, "0")}.zip`;
+      document.body.appendChild(link);
+      try { link.click(); } finally { link.remove(); URL.revokeObjectURL(url); }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <section className="box-exports" aria-label="Export boxes">
+    <div className="export-actions">
+      <button disabled={busy || !box.slots.some(Boolean)} onClick={() => download(false)}>Export this box ZIP</button>
+      <button disabled={busy || !boxes.some(b => b.slots.some(Boolean))} onClick={() => download(true)}>Export all boxes ZIP</button>
+    </div>
+    <p className="muted">Downloads stored Pokémon files in their original formats. All-box exports group Pokémon by box and skip empty boxes. Pokémon stay in your Bank.</p>
+    {busy && <p role="status">Preparing ZIP download…</p>}
+    {error && <p role="alert">{error}</p>}
+  </section>;
+}
+
 export function MoveTools({
   pokemon,
   boxes,
