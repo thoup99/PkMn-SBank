@@ -10,14 +10,13 @@ from test_web_storage import imported,TRAINER
 pytestmark=pytest.mark.skipif(os.name!='posix',reason='Pi website targets Linux')
 
 
-def test_reserve_always_full_and_received_record_goes_to_normal_box(tmp_path,imported):
+def test_generated_offer_is_not_a_box_and_received_record_goes_to_normal_boxes(tmp_path,imported):
  s=BankStore(tmp_path);s.set_trainer(TRAINER)
- reserve=s.boxes()[4];assert reserve['id']==5 and reserve['kind']=='dummy'
- assert len(reserve['slots'])==30 and all(p['dex']==25 and p['dummy'] for p in reserve['slots'])
+ assert len(s.boxes())==4 and all(b['kind']=='bank' for b in s.boxes())
  info={'species':'Eevee','species_id':133,'level':10,'legal':True}
- entry=s.receive_record('swsh',b'incoming',info,'receipt-1',sent_id='dummy-pikachu-01')
+ entry=s.receive_record('swsh',b'incoming',info,'receipt-1',sent_id='generated-pikachu')
  assert s.boxes()[0]['slots'][0]['id']==entry
- assert s.boxes()[4]==reserve
+ assert len(s.boxes())==4
  assert s.receive_record('swsh',b'incoming',info,'receipt-1')==entry
  assert len([p for b in s.boxes()[:4] for p in b['slots'] if p])==1
  with pytest.raises(StorageError):s.rename(5,'Other')
@@ -40,21 +39,28 @@ def test_full_normal_boxes_refuse_receipt_without_losing_outgoing(tmp_path,impor
  before=(tmp_path/'CURRENT').read_bytes()
  with pytest.raises(StorageError,match='full'):s.receive_record('swsh',b'new',{'species':'Eevee','species_id':133,'level':10,'legal':True},'full',sent_id='dummy-pikachu-02')
  assert (tmp_path/'CURRENT').read_bytes()==before
- assert len(s.boxes()[4]['slots'])==30
- # Existing overflow is exposed as box 6, never replaces reserve 5.
+ assert len(s.boxes())==4
+ # The fifth real box is still available; removing the virtual reserve deletes no records.
  s.import_file('overflow.pk8',b'overflow')
- assert s.boxes()[5]['id']==6 and s.boxes()[5]['slots'][0]
+ assert s.boxes()[4]['id']==5 and s.boxes()[4]['slots'][0]
+ s.rename(5,'Overflow')
+ assert s.boxes()[4]['name']=='Overflow'
+ overflow=s.boxes()[4]['slots'][0]['id']
+ first=s.boxes()[0]['slots'][0]['id']
+ s.move(overflow,1,0,first)
+ assert s.boxes()[0]['slots'][0]['id']==overflow and s.boxes()[4]['slots'][0]['id']==first
+ assert s.export(overflow)[1]==b'overflow'
 
 
 def test_real_pikachu_generated_automatically_and_cached(tmp_path):
  try:pokemon._command()
  except pokemon.BuilderError:pytest.skip('Build PKHeX helper')
  s=BankStore(tmp_path);s.set_trainer(TRAINER);manager=SimulatedTrading(s)
- a=manager.preview('swsh',['dummy-pikachu-01'])
- b=manager.preview('swsh',['dummy-pikachu-01'])
+ a=manager.preview('swsh',['generated-pikachu'])
+ b=manager.preview('swsh',['generated-pikachu'])
  assert a['compatible'] and a['token']==b['token']
- session=manager.stage('swsh',['dummy-pikachu-01'],a['token'])
+ session=manager.stage('swsh',['generated-pikachu'],a['token'])
  session=manager.action(session['id'],'start',session['version'])
  for _ in range(3):session=manager.action(session['id'],'advance',session['version'])
- assert session['status']=='completed' and len(s.boxes()[4]['slots'])==30
+ assert session['status']=='completed' and len(s.boxes())==4
  assert not any(p for b in s.boxes()[:4] for p in b['slots'])

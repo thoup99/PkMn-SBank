@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./BankTools";
 import type { Box } from "./types";
+import { GENERATED_PIKACHU_ID, isGeneratedPikachu } from "./types";
 interface QueueItem {
   id: string;
   species: string;
@@ -76,7 +77,7 @@ export default function Trading({
             "interrupted",
           ].includes(data.session.status)
         ) {
-          setSelected(data.session.queue.map((p: QueueItem) => p.id).filter((id: string) => bank.some(p => p.id === id)));
+          setSelected(data.session.queue.map((p: QueueItem) => p.id).filter((id: string) => (isGeneratedPikachu(id) || bank.some(p => p.id === id))));
           setGame(data.session.game);
         }
       })
@@ -206,8 +207,8 @@ export default function Trading({
         </p>
         {!bank.length && (
           <p>
-            Import Pokémon in Boxes and set your receiving trainer in Settings
-            first.
+            Choose a generated deposit offer or import Pokémon in Boxes. Set
+            your receiving trainer in Settings first.
           </p>
         )}
         <div className="stage-list">
@@ -247,6 +248,16 @@ export default function Trading({
               </label>
             ))}
         </div>
+        <label className="setting-row">
+          <span>Include a generated deposit offer</span>
+          <input type="checkbox" checked={selected.some(isGeneratedPikachu)}
+            disabled={busy || active || (!selected.some(isGeneratedPikachu) && selected.length === 6)}
+            onChange={e => {
+              setSelected(ids => e.target.checked ? [...ids.filter(id => !isGeneratedPikachu(id)), GENERATED_PIKACHU_ID] : ids.filter(id => !isGeneratedPikachu(id)));
+              setPreview(null);
+            }} />
+        </label>
+        <p className="muted">This adds a generated Pikachu to the simulation queue without creating a Bank record.</p>
         <div className="trade-actions">
           <button disabled={busy || active || !selected.length} onClick={()=>{setSelected([]);setPreview(null);}}>Clear selection</button>
           <button

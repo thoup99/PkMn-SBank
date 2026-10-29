@@ -18,7 +18,7 @@ simulation/CLI support. No 3DS integration is included.
   share `303a:1001`, so verify the physical S3 board and socket.
 - Your Switch running Sword, Shield, or Legends Z-A, and your own locally installed Switch
   `prod.keys`, required by upstream LDN authentication.
-- At least one empty slot in normal boxes 1–4 for a reserve-Pikachu deposit, or a
+- At least one empty slot in normal boxes 1–4 for a generated-Pikachu deposit, or a
   real outgoing record from those normal boxes that will free a slot.
 
 This code has automated lifecycle and simulated-radio tests. A physical Pi/S3/
@@ -127,13 +127,13 @@ cd ~/PkMn-SBank
 bash scripts/run_web_pi5.sh
 ```
 
-1. Open `http://<PI-IP>:8000`, save your receiving trainer in Settings, and verify
-   box 5 has 30 Pikachus. No manually generated outgoing file is needed.
+1. Open `http://<PI-IP>:8000` and save your receiving trainer in Settings.
+   No manually generated outgoing file or Pikachu box is needed.
 2. Open **Trading → Trade with your Switch**. Choose **Sword / Shield** in the
    **Destination game** dropdown (see the Z-A test below for Legends Z-A). Other Switch games are listed as unavailable
    until their live website integrations are implemented; the simulator supports
-   more destinations. Select a reserve Pikachu
-   and the attached native USB port. Choose your own eight-digit Link Code.
+   more destinations. Check **Use a valid generated Pikachu** below the outgoing
+   Pokémon dropdown and select the attached native USB port. Choose your own eight-digit Link Code.
 3. Press **Start real Sword/Shield trade** once. This opens a real radio session,
    not the separate Phase 4 simulator below it.
 4. On the Switch, open Sword/Shield's **Y-Comm**, ensure **local communication**,
@@ -143,13 +143,13 @@ bash scripts/run_web_pi5.sh
 5. Wait for the game to finish saving and the website to show **completed**.
    The engine allows the upstream save/migration grace period (about 27 seconds
    after protocol confirmation), so the website can finish later than the game.
-6. Verify the received Pokémon appears in **boxes 1–4** and box 5 is still full.
+6. Verify the received Pokémon appears in **boxes 1–4** and no generated offer has been added to your Bank.
    Refresh/restart the website and confirm the record persists. Export a copy and
    download a backup before another test.
 
-For a withdrawal/exchange test, select a real Bank record instead of a reserve
-Pikachu. After a durable protocol confirmation, the received record and removal of
-the outgoing record are committed **atomically**. The reserve is unaffected.
+For a withdrawal/exchange test, select a real Bank record instead of enabling the generated
+Pikachu option. After a durable protocol confirmation, the received record and removal of
+the outgoing record are committed **atomically**. The generated offer never occupies a Bank slot.
 Each website run is bounded to one trade; start a new run for the next trade.
 Do not initiate a second exchange in the same console session.
 
@@ -162,10 +162,10 @@ Do not initiate a second exchange in the same console session.
    Pokémon must pass the same conversion/check again at actual trade startup.
    Changing the destination or Bank contents refreshes the checks. If checking
    fails, starting a trade stays disabled. Save your trainer in Settings first.
-3. Select a compatible Bank Pokémon or a reserve Pikachu (automatically given a
-   fresh identity for each real run so repeated deposits do not reuse the same
-   Pikachu PID/encryption constant), the native USB port,
-   and an eight-digit code. Click **Start real Legends Z-A trade** once.
+3. Select a compatible Bank Pokémon or check **Use a valid generated Pikachu**
+   below the dropdown. Generated offers get a fresh identity for each real run so
+   repeated deposits do not reuse the same Pikachu PID/encryption constant.
+   Select the native USB port and an eight-digit code. Click **Start real Legends Z-A trade** once.
 4. In Legends Z-A, open **Link Play**, choose **local communication → Link Trade**,
    and search using the same code. Inspect the offered Pokémon and use an
    expendable Pokémon for your first physical test.
@@ -175,7 +175,7 @@ Do not initiate a second exchange in the same console session.
    handover. Do not begin another trade in the same session. The website may
    finish later than the game; its overall radio run is bounded to five minutes.
 6. Wait for website **completed**, then verify the incoming Pokémon persists in
-   boxes 1–4 and all 30 reserve Pikachus remain. A real outgoing record is removed
+   boxes 1–4, without adding a generated Pikachu to the Bank. A real outgoing record is removed
    only atomically with the confirmed incoming record. For any uncertain outcome,
    use the common recovery steps below instead of repeating the trade.
 
@@ -233,8 +233,7 @@ Internet-facing or multi-user service.
   holds the port. Do not run two website servers or GUI trade sessions together.
 - No partner: check local rather than online communication, matching code,
   antenna, distance, and correct game. Select the matching Sword/Shield or Legends Z-A destination.
-- Full normal boxes: make space before starting; the reserve is never an incoming
-  destination. An uncommitted received file stays in recovery storage.
+- Full normal boxes: make space before starting; generated offers never occupy a Bank slot. An uncommitted received file stays in recovery storage.
 - Missing dependencies/helper: rerun the setup script, then restart the website.
 - Recovery lock busy: the old process still owns the board; wait for it or reboot
   before trying recovery. No automatic retries are performed after ambiguity.

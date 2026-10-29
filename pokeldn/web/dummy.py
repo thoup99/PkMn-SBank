@@ -1,4 +1,4 @@
-"""Virtual, inexhaustible deposit offers; never real Bank entries."""
+"""Generated deposit offers; never stored as Bank entries or boxes."""
 import base64
 import hashlib
 import json
@@ -8,16 +8,13 @@ import threading
 from pokeldn import pokemon
 
 
+GENERATED_ID = 'generated-pikachu'
+
+
 def is_dummy(entry_id):
-    return isinstance(entry_id, str) and re.fullmatch(r'dummy-pikachu-(0[1-9]|[12][0-9]|30)', entry_id) is not None
-
-
-def reserve_box():
-    return {'id':5,'kind':'dummy','name':'Pikachu reserve','slots':[
-        {'id':f'dummy-pikachu-{i:02}', 'species':'Pikachu','dex':25,'level':None,'types':['Electric'],
-         'nature':None,'ability':None,'game':'Reusable deposit offer','trainer':None,'shiny':False,
-         'dummy':True,'summary':'Automatically prepared for the selected game. Received Pokémon go to boxes 1–4.'}
-        for i in range(1,31)]}
+    # Keep old virtual-box references recoverable in persisted trade sessions.
+    return entry_id == GENERATED_ID or (isinstance(entry_id, str) and
+        re.fullmatch(r'dummy-pikachu-(0[1-9]|[12][0-9]|30)', entry_id) is not None)
 
 
 class DummyOffers:

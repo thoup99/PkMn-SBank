@@ -17,7 +17,7 @@ from pokeldn import pokemon, gen8
 from pokeldn.app import bank
 from pokeldn.app.paths import ROOT
 from pokeldn.swsh import pokemon as swsh_pokemon
-from pokeldn.web.dummy import DummyOffers,is_dummy
+from pokeldn.web.dummy import DummyOffers,is_dummy,GENERATED_ID
 from pokeldn.web.serve import supported_host
 from pokeldn.web.keys import keys_path
 from pokeldn.web.storage import GAMES,StorageError,durable_write
@@ -125,8 +125,7 @@ class LiveTrading:
                     return {'compatible': False, 'reason': str(error)}
             for entry in entries:
                 results.append({'id': entry.id, **check(entry.id, entry)})
-            dummy = check('dummy-pikachu-01')
-            results.extend({'id': f'dummy-pikachu-{n:02}', **dummy} for n in range(1, 31))
+            results.append({'id': GENERATED_ID, **check(GENERATED_ID)})
             result = {'game': game, 'entries': results}
             self.compatibility_cache = {key: result}
             return copy.deepcopy(result)
@@ -254,7 +253,7 @@ class LiveTrading:
                     receipt['offered_sha256']!=session['offered_sha256']):raise ValueError('receipt mismatch')
             info=pokemon.SERVICE.check_bytes(session['game'],data)
             received=self.store.receive_record(session['game'],data,info,'usb-'+session['id'],sent_id=session['entry_id'],sent_sha256=session['sent_sha256'])
-            return self._status(session['id'],'completed','Confirmed trade committed. Incoming Pokémon is in boxes 1–4; the Pikachu reserve stays full.',received_id=received,returncode=returncode)
+            return self._status(session['id'],'completed','Confirmed trade committed. Incoming Pokémon is in boxes 1–4.',received_id=received,returncode=returncode)
         except Exception:
             return self._status(session['id'],'recovery_required','Confirmed/raw files are retained. Commit failed; fix storage/helper issues and use Recover receipt.',returncode=returncode)
 

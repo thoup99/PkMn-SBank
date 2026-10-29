@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 
 from pokeldn.app import bank
-from pokeldn.web.dummy import reserve_box, is_dummy
+from pokeldn.web.dummy import is_dummy
 
 GAMES = {"frlg": "FireRed / LeafGreen", "rse": "Ruby / Sapphire / Emerald", "lgpe": "Let's Go",
          "swsh": "Sword / Shield", "bdsp": "Brilliant Diamond / Shining Pearl",
@@ -194,10 +194,9 @@ class BankStore:
             revision = self._current()
             state = self._state(revision)
             entries = {e.id: self._pokemon(e) for e in bank.entries(revision / "Bank")} if revision else {}
-            boxes = [{**box, "id": box["id"] if box["id"] < 5 else box["id"] + 1,
+            boxes = [{**box,
                       "kind": "bank", "slots": [entries.get(key) if key else None for key in box["slots"]]}
                      for box in state["boxes"]]
-            boxes.insert(4, reserve_box())
             return boxes
 
     def settings(self):
@@ -232,9 +231,8 @@ class BankStore:
         return self._commit(f"Imported {name}", apply)
 
     def move(self, entry_id, box_id, slot, expected):
-        if is_dummy(entry_id) or box_id == 5:
-            raise StorageError("The Pikachu reserve is replenished automatically and cannot hold Bank records.")
-        box_id = box_id if box_id < 5 else box_id - 1
+        if is_dummy(entry_id):
+            raise StorageError("Generated trade offers are not stored in Bank boxes.")
         def apply(folder, state):
             source = next(((b, i) for b in state["boxes"] for i, key in enumerate(b["slots"])
                            if key == entry_id), None)
@@ -248,9 +246,6 @@ class BankStore:
         self._commit("Moved Pokémon between slots", apply)
 
     def rename(self, box_id, name):
-        if box_id == 5:
-            raise StorageError("The Pikachu reserve cannot be renamed.")
-        box_id = box_id if box_id < 5 else box_id - 1
         def apply(folder, state):
             box = next((b for b in state["boxes"] if b["id"] == box_id), None)
             if not box:
@@ -363,7 +358,7 @@ class BankStore:
             self._commit("Recovered downloaded backup ZIP", apply, recovery=True)
 
     def receive_record(self, game, content, info, receipt, *, sent_id=None, sent_sha256=None):
-        """Atomically route a confirmed receipt to normal boxes 1–4, never the reserve.
+        """Atomically route a confirmed receipt to normal boxes 1–4.
         The caller must keep raw received bytes durably until this commit succeeds.
         Receipt IDs make recovery/replayed confirmations idempotent.
         """

@@ -36,7 +36,7 @@ for first installation, backups, data paths and troubleshooting.
 2. Open **Trading** and select Sword/Shield, Scarlet/Violet, Brilliant
    Diamond/Shining Pearl, Legends Arceus, Let's Go, Legends Z-A or FireRed/LeafGreen.
    Ruby/Sapphire/Emerald is not offered as a Switch trade destination.
-3. Select one to six Bank Pokémon or reusable Pikachus from box 5. Their queue order is their selection order;
+3. Select one to six Bank Pokémon, optionally using **Include a generated deposit offer** to add a Pikachu without a Bank record. Their queue order is their selection order;
    uncheck/reselect to change it. Search by species or source game if needed.
 4. Choose **Check compatibility**. Each result is compatible or refused with
    PKHeX's reason. Review conversion and HOME-tracker warnings. This assesses

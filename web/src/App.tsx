@@ -126,7 +126,7 @@ function Details({
           ? "Illustrative metadata only. This is not a stored Pokémon record."
           : pokemon.summary}
       </p>
-      {!demo && !pokemon.dummy && (
+      {!demo && (
         <>
           <p className="muted">
             Import validation:{" "}
@@ -143,13 +143,6 @@ function Details({
             onClose={onClose}
           />
         </>
-      )}
-      {pokemon.dummy && (
-        <p className="muted">
-          Reusable deposit offer. Pick this Pikachu on Trading; it is prepared
-          automatically. Incoming Pokémon go to boxes 1–4, while this box stays
-          full.
-        </p>
       )}
       <button className="primary" onClick={onClose}>
         Back to boxes
@@ -213,7 +206,7 @@ export default function App() {
   const box = boxes.find((b) => b.id === active) ?? boxes[0];
   const all = boxes
     .flatMap((b) => b.slots)
-    .filter((p): p is Pokemon => !!p && !p.dummy);
+    .filter((p): p is Pokemon => !!p);
   const count = box?.slots.filter(Boolean).length ?? 0;
   const visible =
     box?.slots.filter((p) => p && matches(p, query, type)).length ?? 0;
@@ -418,7 +411,7 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                {!demo && box.kind !== "dummy" && (
+                {!demo && (
                   <RenameBox box={box} onChange={reload} />
                 )}
                 <div className="filters">
@@ -511,7 +504,7 @@ export default function App() {
                   <span>Select a Pokémon to view details</span>
                 </div>
               </section>
-              {!demo && box.kind !== "dummy" && (
+              {!demo && (
                 <ImportTools ready={pkhex} onChange={reload} />
               )}
             </>
