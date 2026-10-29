@@ -20,6 +20,7 @@ from pokeldn.swsh import pokemon as swsh_pokemon
 from pokeldn.sv.trade import load_offer as sv_offer
 from pokeldn.pla import pokemon as pla_pokemon
 from pokeldn.bdsp import pokemon as bdsp_pokemon
+from pokeldn.lgpe import pb7, code_picks
 from pokeldn.web.dummy import DummyOffers,is_dummy,GENERATED_ID
 from pokeldn.web.serve import supported_host
 from pokeldn.web.keys import keys_path
@@ -27,7 +28,7 @@ from pokeldn.web.storage import GAMES,StorageError,durable_write,BOX_COUNT
 
 ACTIVE={'starting','running','stopping'}
 PENDING=ACTIVE|{'interrupted','uncertain','recovery_required'}
-LIVE_GAMES=[{'key': key, 'name': name, 'available': key in {'swsh', 'za', 'sv', 'pla', 'bdsp'}}
+LIVE_GAMES=[{'key': key, 'name': name, 'available': key in {'swsh', 'za', 'sv', 'pla', 'bdsp', 'lgpe'}}
             for key, name in GAMES.items() if key not in {'frlg', 'rse'}]
 
 
@@ -116,11 +117,11 @@ class LiveTrading:
             raise pokemon.BuilderError(checked.get('report') or 'PKHeX refused the outgoing offer.')
         if fresh_dummy and dummy:
             raw = base64.b64decode(checked['data'], validate=True)
-        wire = bdsp_pokemon.build_from(raw) if game == 'bdsp' else swsh_pokemon.encrypt(gen8.load(raw)) if game == 'swsh' else pla_pokemon.encrypt(pla_pokemon.load(raw)) if game == 'pla' else (sv_offer(raw) if game == 'sv' else pokemon.offer_bytes('za', raw))
+        wire = (raw[:232] if pb7.valid(raw[:232]) else pb7.encrypt(raw[:232])) if game == 'lgpe' else bdsp_pokemon.build_from(raw) if game == 'bdsp' else swsh_pokemon.encrypt(gen8.load(raw)) if game == 'swsh' else pla_pokemon.encrypt(pla_pokemon.load(raw)) if game == 'pla' else (sv_offer(raw) if game == 'sv' else pokemon.offer_bytes('za', raw))
         return entry, raw, checked, wire
 
     def compatibility(self, game):
-        if game not in {'swsh', 'za', 'sv', 'pla', 'bdsp'}:
+        if game not in {'swsh', 'za', 'sv', 'pla', 'bdsp', 'lgpe'}:
             raise StorageError('Choose a connected live trading game.', 422)
         with self.store.locked():
             revision = self.store._current()
@@ -146,10 +147,14 @@ class LiveTrading:
 
     def start(self,entry_id,device,code,request_id,*,game='swsh'):
         with self.lock:
-            if game not in {'swsh', 'za', 'sv', 'pla', 'bdsp'}:raise StorageError('Choose an available live trading game.',422)
+            if game not in {'swsh', 'za', 'sv', 'pla', 'bdsp', 'lgpe'}:raise StorageError('Choose an available live trading game.',422)
             if not self.host_check():raise StorageError('Live USB trading requires a 64-bit Raspberry Pi 5.',422)
-            if not re.fullmatch('[0-9]{8}',code) or not re.fullmatch('[0-9a-f-]{36}',request_id):
-                raise StorageError('Use an eight-digit Link Code and a valid request ID.',422)
+            valid_code = bool(re.fullmatch('[0-9]{8}',code))
+            if game == 'lgpe':
+                try: code_picks(code.split(',')); valid_code = True
+                except ValueError: valid_code = False
+            if not valid_code or not re.fullmatch('[0-9a-f-]{36}',request_id):
+                raise StorageError('Use the selected game’s Link Code and a valid request ID.',422)
             if device not in {p['device'] for p in self.devices()}:
                 raise StorageError('Choose an attached Espressif native USB port. S3 boards must use the native USB connector.',422)
             if not os.access(device,os.R_OK|os.W_OK):raise StorageError('The Pi user cannot access this serial port. Add the user to dialout and log in again.',422)
@@ -196,6 +201,11 @@ class LiveTrading:
                       str(run/('candidate.'+pokemon.EXTENSIONS[game])),
                       '--player-name',session['trainer']['ot'],'--trainer-name',session['trainer']['ot'],
                       '--code',code,'--seconds','300','--one-trade-receipt',str(run/'confirmed.json')]
+                if game=='lgpe':
+                    argv=[sys.executable,'-u',str(Path(ROOT)/'pokeldn/app/entry.py'),'--run','bin/lgpe_host.py',
+                          '--keys',str(keys),'--offer',str(run/'offer.pb7'),'--received',str(run/'candidate.pb7'),
+                          '--code',code,'--seconds','300','--grace','60','--one-trade-receipt',str(run/'confirmed.json'),
+                          '--first','echo','--trainer-name',session['trainer']['ot'],'--our-trainer',f"{session['trainer']['tid']}:{session['trainer']['sid']}"]
                 if game=='bdsp':
                     argv=[sys.executable,'-u',str(Path(ROOT)/'pokeldn/app/entry.py'),'--run','bin/bdsp_host.py',
                           '--keys',str(keys),'--offer',str(run/'offer.pb8'),'--received',str(run/'candidate.pb8'),
@@ -214,7 +224,7 @@ class LiveTrading:
                                                bufsize=1,pass_fds=(usb_fd,),start_new_session=True)
                 launched=True
                 def running(folder,state):
-                    state['live_session'].update(status='running',message=('In Sword/Shield, use local Y-Comm Link Trade' if game=='swsh' else 'In Scarlet/Violet, open Poké Portal and Link Trade with offline communication' if game=='sv' else 'In Brilliant Diamond/Shining Pearl, enter the local Union Room with this code; after the trade animation, highlight another Pokémon to finish recording, without confirming another trade' if game=='bdsp' else 'In Legends Arceus, speak to Simona, choose I want to trade Pokémon and Someone nearby' if game=='pla' else 'In Legends Z-A, open Link Play, choose local communication and Link Trade')+' with this Link Code. Complete exactly one trade and wait for the website result.')
+                    state['live_session'].update(status='running',message=('In Sword/Shield, use local Y-Comm Link Trade' if game=='swsh' else 'In Scarlet/Violet, open Poké Portal and Link Trade with offline communication' if game=='sv' else 'In Let’s Go, open Communicate, Play With Others, Nearby player and Link Trade; use the three Pokémon symbols shown' if game=='lgpe' else 'In Brilliant Diamond/Shining Pearl, enter the local Union Room with this code; after the trade animation, highlight another Pokémon to finish recording, without confirming another trade' if game=='bdsp' else 'In Legends Arceus, speak to Simona, choose I want to trade Pokémon and Someone nearby' if game=='pla' else 'In Legends Z-A, open Link Play, choose local communication and Link Trade')+' with this Link Code. Complete exactly one trade and wait for the website result.')
                 self._mutate('USB trade process running',running)
                 self.worker=threading.Thread(target=self._worker,args=(session,self.proc,usb_fd),daemon=True)
                 self.worker.start()

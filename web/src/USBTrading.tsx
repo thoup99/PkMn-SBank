@@ -52,6 +52,7 @@ export default function USBTrading({
     [game, setGame] = useState(""),
     [device, setDevice] = useState(""),
     [code, setCode] = useState("12345678"),
+    [symbols, setSymbols] = useState(["pikachu","pikachu","pikachu"]),
     [entry, setEntry] = useState("");
   const [useGenerated, setUseGenerated] = useState(false);
   const [compatibility, setCompatibility] = useState<Compatibility | null>(null);
@@ -168,7 +169,7 @@ export default function USBTrading({
           ))}
         </select>
       </label>
-      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield, Scarlet / Violet, Brilliant Diamond / Shining Pearl, Legends Arceus, and Legends Z-A. Other destinations can be previewed in the simulator below.</p>
+      <p className="muted">Choose the game running on your Switch. Real USB trades currently support Sword / Shield, Scarlet / Violet, Brilliant Diamond / Shining Pearl, Legends Arceus, Legends Z-A, and Let’s Go Pikachu / Eevee. Other destinations can be previewed in the simulator below.</p>
       <label className="trade-field">
         Outgoing Pokémon
         <select
@@ -222,7 +223,14 @@ export default function USBTrading({
         connected your ESP32-S3’s native USB port and installed the wireless
         radio firmware.
       </p>
-      <label className="trade-field">
+      {game === "lgpe" ? <div className="trade-field">
+        <span>Three-Pokémon Link Code</span>
+        {symbols.map((symbol,index)=><label key={index}>Symbol {index+1}
+          <select value={symbol} disabled={busy || blocked} onChange={e=>setSymbols(symbols.map((s,i)=>i===index?e.target.value:s))}>
+            {["pikachu","eevee","bulbasaur","charmander","squirtle","pidgey","caterpie","rattata","jigglypuff","diglett"].map(s=><option key={s} value={s}>{s[0].toUpperCase()+s.slice(1)}</option>)}
+          </select>
+        </label>)}
+      </div> : <label className="trade-field">
         Eight-digit Link Code
         <input
           value={code}
@@ -231,7 +239,7 @@ export default function USBTrading({
           disabled={busy || blocked}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
         />
-      </label>
+      </label>}
       <div className="trade-actions">
         <button
           disabled={busy}
@@ -253,7 +261,7 @@ export default function USBTrading({
             !available.get(useGenerated ? GENERATED_ID : entry)?.compatible ||
             !status?.games?.some(target => target.key === game && target.available) ||
             !device ||
-            !/^\d{8}$/.test(code)
+            (game !== "lgpe" && !/^\d{8}$/.test(code))
           }
           onClick={() =>
             perform(async () => {
@@ -264,7 +272,7 @@ export default function USBTrading({
                   game,
                   entry_id: useGenerated ? GENERATED_ID : entry,
                   device,
-                  code,
+                  code: game === "lgpe" ? symbols.join(",") : code,
                   request_id: newRequestId(),
                 }),
               });

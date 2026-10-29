@@ -100,10 +100,10 @@ class TradeAction(BaseModel):
 
 
 class USBStart(BaseModel):
-    game: Literal["swsh", "za", "sv", "pla", "bdsp"] = "swsh"
+    game: Literal["swsh", "za", "sv", "pla", "bdsp", "lgpe"] = "swsh"
     entry_id: str = Field(min_length=1,max_length=160)
     device: str = Field(min_length=1,max_length=200)
-    code: str = Field(pattern=r"^[0-9]{8}$")
+    code: str = Field(min_length=3,max_length=64)
     request_id: str = Field(min_length=36,max_length=36)
 
 
@@ -317,7 +317,7 @@ def create_app(frontend_dir: Path | None = None, *, data_dir: Path | None = None
         return usb.current()
 
     @app.get("/api/usb/compatibility")
-    def usb_compatibility(game: Literal["swsh", "za", "sv", "pla", "bdsp"]):
+    def usb_compatibility(game: Literal["swsh", "za", "sv", "pla", "bdsp", "lgpe"]):
         return {"game": game, "entries": []} if mode == "demo" else usb.compatibility(game)
 
     @app.post("/api/usb/start")
