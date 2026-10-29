@@ -153,10 +153,9 @@ export function BoxExports({ box, boxes }: { box: Box; boxes: Box[] }) {
   };
   return <section className="box-exports" aria-label="Export boxes">
     <div className="export-actions">
-      <button disabled={busy || !box.slots.some(Boolean)} onClick={() => download(false)}>Export this box ZIP</button>
-      <button disabled={busy || !boxes.some(b => b.slots.some(Boolean))} onClick={() => download(true)}>Export all boxes ZIP</button>
+      <button disabled={busy || !box.slots.some(Boolean)} onClick={() => download(false)}>Export this box</button>
+      <button disabled={busy || !boxes.some(b => b.slots.some(Boolean))} onClick={() => download(true)}>Export all boxes</button>
     </div>
-    <p className="muted">Downloads stored Pokémon files in their original formats. All-box exports group Pokémon by box and skip empty boxes. Pokémon stay in your Bank.</p>
     {busy && <p role="status">Preparing ZIP download…</p>}
     {error && <p role="alert">{error}</p>}
   </section>;

@@ -1198,5 +1198,13 @@ dialog {
   background: #91a19c;
 }
 
-.box-exports { margin: 16px 0; }
+.box-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 20px; }
+.box-toolbar .rename-box { margin-bottom: 0; }
+.box-exports { margin-left: auto; }
 .export-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+@media (max-width: 600px) {
+  .box-toolbar { flex-direction: column; align-items: stretch; }
+  .box-exports { margin-left: 0; }
+  .export-actions { justify-content: flex-end; }
+}

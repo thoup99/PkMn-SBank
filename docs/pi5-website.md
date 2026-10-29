@@ -221,8 +221,8 @@ instead of leaving a stale Connected indicator. Demo mode does not probe hardwar
 
 ## Exporting boxes
 
-On **Boxes**, use **Export this box ZIP** for the selected box, or **Export all
-boxes ZIP** for the whole Bank. A single-box ZIP contains its Pokémon files at
+On **Boxes**, use **Export this box** for the selected box, or **Export all
+boxes** for the whole Bank. A single-box ZIP contains its Pokémon files at
 the archive root. The whole-Bank ZIP includes one numbered/named folder per
 occupied box; empty boxes are omitted. Slot numbers prefix filenames so you can
 identify their positions. Search/type filters do not limit exports.
