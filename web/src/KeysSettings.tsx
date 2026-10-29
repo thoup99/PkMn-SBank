@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "./BankTools";
 
 export default function KeysSettings() {
+  const fileInput = useRef<HTMLInputElement>(null);
   const [installed, setInstalled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -11,9 +12,14 @@ export default function KeysSettings() {
   return <section className="panel settings">
     <h2>Switch keys</h2>
     <p className="muted">Upload your own prod.keys to the Pi for real Switch trades. This replaces previously installed keys. Key contents are never displayed or included in Bank backups. Use this upload only on your trusted local network.</p>
-    <p role="status">{installed === null ? "Checking keys…" : installed ? "Keys installed on the Pi" : "No readable keys installed"}</p>
-    <label>prod.keys file
-      <input type="file" disabled={busy} onChange={async e => {
+    <div className="keys-upload-controls">
+      <button type="button" className="primary" disabled={busy}
+        onClick={() => fileInput.current?.click()}>
+        {busy ? "Installing keys…" : "Upload prod.keys"}
+      </button>
+      <span role="status">{installed === null ? "Checking keys…" : installed ? "Keys present on the Pi" : "Keys not present or unreadable"}</span>
+    </div>
+    <input ref={fileInput} type="file" hidden aria-label="prod.keys file" disabled={busy} onChange={async e => {
         const input = e.currentTarget, file = input.files?.[0];
         if (!file) return;
         setError(""); setBusy(true);
@@ -24,8 +30,7 @@ export default function KeysSettings() {
         } catch (err) { setError((err as Error).message); }
         finally { setBusy(false); input.value = ""; }
       }} />
-    </label>
-    {busy && <p>Installing keys…</p>}
+
     {error && <p role="alert">{error}</p>}
   </section>;
 }
