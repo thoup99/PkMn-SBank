@@ -201,3 +201,15 @@ it("recovers from an initial API failure with an explicit retry", async () => {
     await screen.findByRole("option", { name: "Sword / Shield" }),
   ).toBeInTheDocument();
 });
+
+it('can check a generated deposit offer without Bank Pokémon',async()=>{
+ const user=userEvent.setup();
+ vi.mocked(fetch).mockImplementation((input)=>String(input).endsWith('/preview')?reply({game:'swsh',queue:[{...queue[0],id:'generated-pikachu'}],compatible:true,token:'a'.repeat(64)}):reply({games,session:null}));
+ render(<Trading boxes={[]} ready/>);
+ await screen.findByRole('option',{name:'Sword / Shield'});
+ await user.click(screen.getByRole('checkbox',{name:'Include a generated deposit offer'}));
+ await user.click(screen.getByRole('button',{name:'Check compatibility'}));
+ expect(await screen.findByText('Pikachu — Compatible')).toBeInTheDocument();
+ const call=vi.mocked(fetch).mock.calls.find(c=>String(c[0]).endsWith('/preview'));
+ expect(JSON.parse(call?.[1]?.body as string).entry_ids).toEqual(['generated-pikachu']);
+});

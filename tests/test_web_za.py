@@ -24,7 +24,7 @@ def seed(store, game, species, receipt):
     return id, raw
 
 
-def test_za_reserve_receipt_and_correct_launcher_are_idempotent(usb):
+def test_za_generated_receipt_and_correct_launcher_are_idempotent(usb):
     store, device, devices, _ = usb
     incoming = base64.b64decode(pokemon.SERVICE.make('za',133,TRAINER)['data'])
     calls = []
@@ -37,13 +37,13 @@ def test_za_reserve_receipt_and_correct_launcher_are_idempotent(usb):
         return proc
     manager = LiveTrading(store, host_check=lambda:True, devices=devices, process_factory=factory)
     request = str(uuid.uuid4())
-    manager.start('dummy-pikachu-01',str(device),'12345678',request,game='za')
+    manager.start('generated-pikachu',str(device),'12345678',request,game='za')
     result = wait_for(manager, {'completed'}); manager.worker.join(5)
     assert result['game'] == 'za'
     assert store.export(result['received_id'])[1] == incoming
     assert store.boxes()[0]['slots'][0]['game'] == 'Legends Z-A'
-    assert all(p['dummy'] for p in store.boxes()[4]['slots'])
-    assert manager.start('dummy-pikachu-01',str(device),'12345678',request,game='za')['id'] == result['id']
+    assert len(store.boxes()) == 4
+    assert manager.start('generated-pikachu',str(device),'12345678',request,game='za')['id'] == result['id']
     assert len(calls) == 1
 
 
@@ -74,7 +74,7 @@ def test_compatibility_uses_real_conversion_and_invalidates_after_bank_change(us
     assert available[grookey]['compatible']
     za = {r['id']:r for r in manager.compatibility('za')['entries']}
     assert not za[grookey]['compatible'] and 'not in that game' in za[grookey]['reason']
-    assert all(za[f'dummy-pikachu-{n:02}']['compatible'] for n in range(1,31))
+    assert za['generated-pikachu']['compatible']
     with pytest.raises(pokemon.BuilderError):
         manager.start(grookey,str(device),'12345678',str(uuid.uuid4()),game='za')
     assert store.export(grookey)[1] == raw
@@ -89,7 +89,7 @@ def test_wrong_game_receipt_is_retained_without_deposit(usb):
         write_receipt(argv[argv.index('--one-trade-receipt')+1],incoming,pokemon.offer_bytes('za',raw),game='swsh')
         return FakeProcess(argv,**kwargs)
     manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
-    manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()),game='za')
+    manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='za')
     result=wait_for(manager,{'recovery_required'});manager.worker.join(5)
     assert not any(p for b in store.boxes()[:4] for p in b['slots'])
     assert (manager._folder(result)/'confirmed.json').exists()
@@ -102,7 +102,7 @@ def test_compatibility_api_and_demo(usb,monkeypatch,tmp_path):
     monkeypatch.setattr(module,'LiveTrading',lambda s:LiveTrading(s,host_check=lambda:True,devices=devices))
     client=TestClient(module.create_app(data_dir=store.root))
     response=client.get('/api/usb/compatibility?game=za')
-    assert response.status_code==200 and len(response.json()['entries'])==30
+    assert response.status_code==200 and len(response.json()['entries'])==1
     assert client.get('/api/usb/compatibility?game=sv').status_code==422
     demo=TestClient(module.create_app(data_dir=tmp_path/'demo',mode='demo'))
     assert demo.get('/api/usb/compatibility?game=za').json()=={'game':'za','entries':[]}
@@ -173,12 +173,12 @@ def test_native_bounded_mode_rejects_mixed_options_before_radio_access():
 
 
 
-def test_each_reserve_run_gets_a_fresh_identity_for_repeated_deposits(usb):
+def test_each_generated_run_gets_a_fresh_identity_for_repeated_deposits(usb):
     store,device,devices,_=usb
     manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=FakeProcess)
     offers=[]
     for _ in range(2):
-        manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()),game='za')
+        manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='za')
         session=wait_for(manager,{'uncertain'});manager.worker.join(5)
         offers.append((manager._folder(session)/'offer.pa9').read_bytes())
         manager.recover(session['id'],resolve=True)
@@ -186,4 +186,19 @@ def test_each_reserve_run_gets_a_fresh_identity_for_repeated_deposits(usb):
     assert offers[0][0x1c:0x20]!=offers[1][0x1c:0x20]
     assert pokemon.SERVICE.owner('za',offers[0])['ot']==TRAINER['ot']
     assert pokemon.SERVICE.owner('za',offers[1])['ot']==TRAINER['ot']
-    assert len(store.boxes()[4]['slots'])==30
+    assert len(store.boxes())==4
+
+
+def test_legacy_pikachu_box_receipt_remains_recoverable_after_box_removal(usb):
+    store,device,devices,_=usb
+    manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=FakeProcess)
+    manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='za')
+    session=wait_for(manager,{'uncertain'});manager.worker.join(5)
+    session=manager._status(session['id'],'uncertain','Legacy pending offer',entry_id='dummy-pikachu-01')
+    run=manager._folder(session)
+    incoming=base64.b64decode(pokemon.SERVICE.make('za',133,TRAINER)['data'])
+    write_receipt(run/'confirmed.json',incoming,pokemon.offer_bytes('za',(run/'offer.pa9').read_bytes()),game='za')
+    restarted=LiveTrading(store,host_check=lambda:True,devices=devices)
+    result=restarted.recover(session['id'])
+    assert result['status']=='completed' and len(store.boxes())==4
+    assert store.export(result['received_id'])[1]==incoming

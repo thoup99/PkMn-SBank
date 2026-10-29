@@ -12,10 +12,9 @@ export interface Pokemon {
   summary?: string;
   legal?: boolean | null;
   home_tracker?: string;
-  dummy?: boolean;
 }
 export interface Box {
-  kind?: "bank" | "dummy";
+  kind?: "bank";
   id: number;
   name: string;
   slots: (Pokemon | null)[];
@@ -35,4 +34,9 @@ export function matches(p: Pokemon, query: string, type: string) {
         .includes(query.trim().toLowerCase())) &&
     (!type || p.types.includes(type) || p.game === type)
   );
+}
+
+export const GENERATED_PIKACHU_ID = "generated-pikachu";
+export function isGeneratedPikachu(id: string) {
+  return id === GENERATED_PIKACHU_ID || /^dummy-pikachu-(0[1-9]|[12][0-9]|30)$/.test(id);
 }

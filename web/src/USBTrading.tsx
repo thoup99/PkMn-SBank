@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "./BankTools";
 import type { Box } from "./types";
+import { GENERATED_PIKACHU_ID as GENERATED_ID, isGeneratedPikachu as generatedOffer } from "./types";
 interface USBSession {
   id: string;
   status: string;
   message: string;
   code: string;
   game: string;
+  entry_id: string;
   species: string;
   received_id: string | null;
 }
@@ -50,7 +52,8 @@ export default function USBTrading({
     [game, setGame] = useState(""),
     [device, setDevice] = useState(""),
     [code, setCode] = useState("12345678"),
-    [entry, setEntry] = useState("dummy-pikachu-01");
+    [entry, setEntry] = useState("");
+  const [useGenerated, setUseGenerated] = useState(false);
   const [compatibility, setCompatibility] = useState<Compatibility | null>(null);
   const [compatibilityError, setCompatibilityError] = useState("");
   const [busy, setBusy] = useState(false),
@@ -59,8 +62,13 @@ export default function USBTrading({
   const refresh = async () => {
     const result = await api("/api/usb/status");
     setStatus(result);
-    if (result.session && pending.includes(result.session.status))
+    if (result.session && pending.includes(result.session.status)) {
       setGame(result.session.game || result.game || "swsh");
+      if (result.session.entry_id) {
+        setUseGenerated(generatedOffer(result.session.entry_id));
+        if (!generatedOffer(result.session.entry_id)) setEntry(result.session.entry_id);
+      }
+    }
     setDevice((current) => current || result.devices[0]?.device || "");
     return result;
   };
@@ -79,8 +87,9 @@ export default function USBTrading({
         if (result.game !== game || !Array.isArray(result.entries))
           throw new Error("Could not verify Pokémon compatibility. Refresh the page and try again.");
         setCompatibility(result);
-        setEntry(previous => result.entries.some(item => item.id === previous && item.compatible)
-          ? previous : result.entries.find(item => item.compatible)?.id || "");
+        const bankIds = new Set(boxes.flatMap(box => box.slots).filter(p => p !== null).map(p => p.id));
+        setEntry(previous => result.entries.some(item => item.id === previous && item.compatible && bankIds.has(item.id))
+          ? previous : result.entries.find(item => item.compatible && bankIds.has(item.id))?.id || "");
       })
       .catch(err => {if (current) setCompatibilityError(err.message);});
     return () => {current = false; controller.abort();};
@@ -133,7 +142,7 @@ export default function USBTrading({
       <h2>Trade with your Switch</h2>
       <p className="muted">
         This starts one real Link Trade using the ESP32-S3 on your Pi’s native
-        USB serial port. A reserve Pikachu is prepared automatically. The
+        USB serial port. You can choose a Bank Pokémon or enable a generated Pikachu below. The
         received Pokémon is committed to boxes 1–4 after confirmation; a real
         outgoing Bank record leaves only in that same commit.
       </p>
@@ -165,7 +174,7 @@ export default function USBTrading({
         <select
           className="outgoing-pokemon"
           value={entry}
-          disabled={busy || blocked || !game || !compatibility || compatibility.game !== game}
+          disabled={busy || blocked || useGenerated || !game || !compatibility || compatibility.game !== game}
           onChange={(e) => setEntry(e.target.value)}
         >
           <option value="">Choose an outgoing Pokémon</option>
@@ -175,13 +184,21 @@ export default function USBTrading({
             .map((p) => (
               <option value={p.id} key={p.id} disabled={!available.get(p.id)?.compatible} title={available.get(p.id)?.reason || undefined}>
                 {p.species} ·{" "}
-                {p.dummy ? "Reserve Pikachu (replenished)" : p.game} ·{" "}
+                {p.game} ·{" "}
                 {p.id.slice(-8)}
                 {available.get(p.id)?.compatible ? "" : ` — ${available.get(p.id)?.reason.replace(/\s+/g, " ").slice(0, 160) || "not checked"}`}
               </option>
             ))}
         </select>
       </label>
+      <label className="setting-row">
+        <span>Use a valid generated Pikachu</span>
+        <input type="checkbox" checked={useGenerated}
+          disabled={busy || blocked || (!useGenerated && !available.get(GENERATED_ID)?.compatible)}
+          onChange={e => setUseGenerated(e.target.checked)} />
+      </label>
+      <p className="muted">A generated Pikachu is prepared and validated for the selected game, with a fresh identity for each trade. It does not occupy a Bank slot. Received Pokémon go into boxes 1–4.</p>
+      {game && available.get(GENERATED_ID)?.reason && <p className="muted">Generated Pikachu: {available.get(GENERATED_ID)?.reason}</p>}
       {game && !compatibility && !compatibilityError && <p role="status">Checking Pokémon compatibility…</p>}
       {compatibilityError && <p role="alert">{compatibilityError}</p>}
       <p className="muted">Grayed-out Pokémon cannot be prepared for this game or have not been checked. Compatibility is revalidated before a real trade starts.</p>
@@ -233,7 +250,7 @@ export default function USBTrading({
             blocked ||
             !status?.supported_host ||
             !status?.keys_available ||
-            !available.get(entry)?.compatible ||
+            !available.get(useGenerated ? GENERATED_ID : entry)?.compatible ||
             !status?.games?.some(target => target.key === game && target.available) ||
             !device ||
             !/^\d{8}$/.test(code)
@@ -245,7 +262,7 @@ export default function USBTrading({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   game,
-                  entry_id: entry,
+                  entry_id: useGenerated ? GENERATED_ID : entry,
                   device,
                   code,
                   request_id: newRequestId(),

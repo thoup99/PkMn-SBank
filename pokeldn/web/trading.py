@@ -95,7 +95,7 @@ class SimulatedTrading:
             if not dummy and entry is None:
                 raise StorageError("A staged Pokémon is no longer in the Bank. Refresh and select it again.", 409)
             result = {"id": entry_id, "species": "Pikachu" if dummy else self.store._pokemon(entry)["species"],
-                      "source_game": "Pikachu reserve" if dummy else GAMES[entry.game], "dummy": dummy,
+                      "source_game": "Generated Pikachu" if dummy else GAMES[entry.game], "dummy": dummy,
                       "compatible": False, "reason": "", "warnings": []}
             try:
                 reply = self.dummies.get(game, trainer) if dummy else pokemon.SERVICE.move(
@@ -113,7 +113,7 @@ class SimulatedTrading:
                 if home in pokemon.HOME_TRACKER_WARNINGS:
                     result["warnings"].append(pokemon.HOME_TRACKER_WARNINGS[home])
                 if dummy:
-                    result["warnings"].append("Reusable Pikachu: the reserve stays full; incoming records are routed to boxes 1–4.")
+                    result["warnings"].append("Generated Pikachu offer: incoming records are routed to boxes 1–4.")
                 if not dummy and entry.game != game:
                     result["warnings"].append("Prepared for the selected game using the Bank's conversion rules; the original record stays unchanged.")
             except pokemon.BuilderError as error:

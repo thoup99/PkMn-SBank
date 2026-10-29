@@ -48,7 +48,7 @@ def usb(tmp_path,monkeypatch):
  return store,device,devices,incoming
 
 
-def test_live_dummy_confirmed_receipt_is_committed_once_to_normal_boxes(usb):
+def test_live_generated_confirmed_receipt_is_committed_once_to_normal_boxes(usb):
  store,device,devices,incoming=usb;calls=[]
  def factory(argv,**kwargs):
   proc=FakeProcess(argv,**kwargs);calls.append(proc)
@@ -57,14 +57,14 @@ def test_live_dummy_confirmed_receipt_is_committed_once_to_normal_boxes(usb):
   write_receipt(argv[argv.index('--one-trade-receipt')+1],incoming,offered)
   return proc
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
- request=str(uuid.uuid4());manager.start('dummy-pikachu-01',str(device),'12345678',request)
+ request=str(uuid.uuid4());manager.start('generated-pikachu',str(device),'12345678',request)
  result=wait_for(manager,{'completed'})
  assert store.boxes()[0]['slots'][0]['id']==result['received_id']
  assert store.export(result['received_id'])[1]==incoming
- assert len(store.boxes()[4]['slots'])==30
+ assert len(store.boxes())==4
  assert calls[0].kwargs['env']['POKELDN_RADIO']=='esp32:'+str(device)
  assert '--one-trade-receipt' in calls[0].argv and calls[0].kwargs['pass_fds']
- assert manager.start('dummy-pikachu-01',str(device),'12345678',request)['id']==result['id']
+ assert manager.start('generated-pikachu',str(device),'12345678',request)['id']==result['id']
  assert len(calls)==1
  manager.recover(result['id'])
  assert len([p for b in store.boxes()[:4] for p in b['slots'] if p])==1
@@ -76,7 +76,7 @@ def test_unconfirmed_exit_never_deposits_candidate_and_requires_operator_resolut
   Path(argv[argv.index('--received')+1]).write_bytes(incoming)
   return FakeProcess(argv,**kwargs)
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
- manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()))
+ manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()))
  result=wait_for(manager,{'uncertain'})
  assert not any(p for b in store.boxes()[:4] for p in b['slots'])
  with pytest.raises(StorageError):manager.start('dummy-pikachu-02',str(device),'12345678',str(uuid.uuid4()))
@@ -93,7 +93,7 @@ def test_recovery_replays_durable_receipt_after_failed_bank_commit(usb,monkeypat
  original=store.receive_record
  monkeypatch.setattr(store,'receive_record',lambda *a,**k:(_ for _ in ()).throw(OSError('disk full')))
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=factory)
- manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()))
+ manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()))
  result=wait_for(manager,{'recovery_required'})
  assert (manager._folder(result)/'confirmed.json').is_file()
  monkeypatch.setattr(store,'receive_record',original)
@@ -106,10 +106,10 @@ def test_recovery_replays_durable_receipt_after_failed_bank_commit(usb,monkeypat
 def test_host_and_device_guards_prevent_process_launch(usb):
  store,device,devices,_=usb
  manager=LiveTrading(store,host_check=lambda:False,devices=devices,process_factory=lambda *a,**k:pytest.fail('must not launch'))
- with pytest.raises(StorageError,match='Pi 5'):manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()))
+ with pytest.raises(StorageError,match='Pi 5'):manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()))
  manager.host_check=lambda:True
- with pytest.raises(StorageError,match='attached'):manager.start('dummy-pikachu-01','/dev/other','12345678',str(uuid.uuid4()))
- with pytest.raises(StorageError):manager.start('dummy-pikachu-01',str(device),'bad',str(uuid.uuid4()))
+ with pytest.raises(StorageError,match='attached'):manager.start('generated-pikachu','/dev/other','12345678',str(uuid.uuid4()))
+ with pytest.raises(StorageError):manager.start('generated-pikachu',str(device),'bad',str(uuid.uuid4()))
 
 
 def test_normal_outgoing_is_removed_only_after_receipt_and_restart_can_recover(usb):
@@ -146,7 +146,7 @@ def test_http_usb_controls_require_same_origin_and_explicit_resolution(usb,monke
  store,device,devices,_=usb
  monkeypatch.setattr(module,'LiveTrading',lambda s:LiveTrading(s,host_check=lambda:True,devices=devices,process_factory=FakeProcess))
  client=TestClient(module.create_app(data_dir=store.root))
- body={'entry_id':'dummy-pikachu-01','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
+ body={'entry_id':'generated-pikachu','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
  assert client.post('/api/usb/start',json=body).status_code==403
  assert client.post('/api/usb/start',json=body,headers={'X-PkMn-SBank':'1','Origin':'http://evil.example'}).status_code==403
  response=client.post('/api/usb/start',json=body,headers={'X-PkMn-SBank':'1'})
@@ -185,14 +185,14 @@ def test_stop_closes_managed_input_retains_originals_and_releases_board(usb):
    if not stopped.wait(timeout or 5):raise TimeoutError('test process did not stop')
    self.code=0;return 0
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=RunningProcess)
- session=manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()))
+ session=manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()))
  assert session['status']=='running'
  with pytest.raises(StorageError):store.rename(1,'Blocked during USB trade')
  manager.cancel(session['id'])
  result=wait_for(manager,{'uncertain'});manager.worker.join(5)
  assert stopped.is_set() and not manager.worker.is_alive()
  assert not any(p for b in store.boxes()[:4] for p in b['slots'])
- assert len(store.boxes()[4]['slots'])==30
+ assert len(store.boxes())==4
  assert manager.recover(result['id'],resolve=True)['status']=='resolved'
  fd=manager._usb_lock();os.close(fd)
 
@@ -221,8 +221,8 @@ def test_destination_catalog_and_unsupported_game_are_explicit(usb):
  assert {g['key'] for g in games}=={'lgpe','swsh','bdsp','pla','sv','za'}
  assert [g['key'] for g in games if g['available']]==['swsh','za']
  with pytest.raises(StorageError,match='Choose Sword / Shield'):
-  manager.start('dummy-pikachu-01',str(device),'12345678',str(uuid.uuid4()),game='sv')
+  manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='sv')
  client=TestClient(create_app(data_dir=store.root))
- body={'game':'sv','entry_id':'dummy-pikachu-01','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
+ body={'game':'sv','entry_id':'generated-pikachu','device':str(device),'code':'12345678','request_id':str(uuid.uuid4())}
  assert client.post('/api/usb/start',json=body,headers={'X-PkMn-SBank':'1'}).status_code==422
  assert client.get('/api/usb/status').json()['games']==games
