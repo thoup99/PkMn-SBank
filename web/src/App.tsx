@@ -8,6 +8,7 @@ import { matches, pageFromHash } from "./types";
 import {
   ImportTools,
   BoxExports,
+  api,
   MoveTools,
   RenameBox,
   StorageHistory,
@@ -169,6 +170,11 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
   const [selected, setSelected] = useState<Pokemon | null>(null);
+  const [dragged, setDragged] = useState<{ id: string; box: number; slot: number } | null>(null);
+  const [dropSlot, setDropSlot] = useState<number | null>(null);
+  const [moveError, setMoveError] = useState("");
+  const [moving, setMoving] = useState(false);
+  const moveLock = useRef(false);
   const [compact, setCompact] = useState(false);
   const [demo, setDemo] = useState(false);
   const [pkhex, setPkhex] = useState(false);
@@ -502,12 +508,44 @@ export default function App() {
                     the filters.
                   </p>
                 )}
+                {moveError && <p role="alert">{moveError}</p>}
+                {moving && <p role="status">Saving Pokémon position…</p>}
                 <div className="box-grid" aria-label={`${box.name}, 30 slots`}>
                   {box.slots.map((pokemon, i) => {
                     const hidden = pokemon && !matches(pokemon, query, type);
                     return (
                       <div
-                        className={`slot ${pokemon ? "occupied" : ""} ${hidden ? "filtered" : ""}`}
+                        className={`slot ${pokemon ? "occupied" : ""} ${hidden ? "filtered" : ""} ${dropSlot === i && dragged?.box === box.id ? "drop-target" : ""}`}
+                        onDragOver={(e) => {
+                          if (!demo && !moveLock.current && dragged?.box === box.id && dragged.slot !== i && !hidden) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            setDropSlot(i);
+                          }
+                        }}
+                        onDragLeave={() => setDropSlot(null)}
+                        onDrop={async (e) => {
+                          e.preventDefault();
+                          setDropSlot(null);
+                          const source = dragged;
+                          setDragged(null);
+                          if (demo || moveLock.current || !source || source.box !== box.id || source.slot === i || hidden || box.slots[source.slot]?.id !== source.id) return;
+                          moveLock.current = true;
+                          setMoving(true);
+                          setMoveError("");
+                          try {
+                            await api(`/api/pokemon/${encodeURIComponent(source.id)}/move`, {
+                              method: "POST", headers: {"Content-Type":"application/json"},
+                              body: JSON.stringify({box_id:box.id,slot:i,expected:pokemon?.id ?? null}),
+                            });
+                            reload();
+                          } catch (err) {
+                            setMoveError((err as Error).message);
+                          } finally {
+                            moveLock.current = false;
+                            setMoving(false);
+                          }
+                        }}
                         key={i}
                       >
                         <span className="slot-number">
@@ -515,7 +553,16 @@ export default function App() {
                         </span>
                         {pokemon ? (
                           <button
-                            disabled={!!hidden}
+                            disabled={!!hidden || moving}
+                            draggable={!demo && !hidden && !moving}
+                            onDragStart={(e) => {
+                              if (demo || hidden || moveLock.current) { e.preventDefault(); return; }
+                              e.dataTransfer.effectAllowed = "move";
+                              e.dataTransfer.setData("text/plain", pokemon.id);
+                              setDragged({id:pokemon.id,box:box.id,slot:i});
+                              setMoveError("");
+                            }}
+                            onDragEnd={() => { setDragged(null); setDropSlot(null); }}
                             onClick={() => setSelected(pokemon)}
                             aria-label={`View ${pokemon.species}, level ${pokemon.level ?? "unknown"}, slot ${i + 1}`}
                           >
@@ -547,7 +594,7 @@ export default function App() {
                     <span className="status-dot" />{" "}
                     {demo ? "Sample staging box" : "Saved staging box"}
                   </span>
-                  <span>Select a Pokémon to view details</span>
+                  <span>{demo ? "Select a Pokémon to view details" : "Drag to move or swap · Select to view details"}</span>
                 </div>
               </section>
               {!demo && (

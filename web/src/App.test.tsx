@@ -176,3 +176,38 @@ it("navigates all 32 boxes and renders only the selected box's 30 slots", async 
   expect(selector).toHaveValue('31');
   expect(screen.getAllByLabelText(/Empty slot/)).toHaveLength(30);
 });
+
+it.each([false,true])('drags within a saved box to an occupied slot: %s',async(occupied)=>{
+  const bank: Box[]=[{id:1,name:'Bank',slots:[pikachu,occupied?{...pikachu,id:'other',species:'Eevee'}:null,...Array(28).fill(null)]}];
+  vi.mocked(fetch).mockImplementation(async(input,options)=>{
+    if(options?.method==='POST') {
+      [bank[0].slots[0],bank[0].slots[1]]=[bank[0].slots[1],bank[0].slots[0]];
+      return {ok:true,json:async()=>({ok:true})} as Response;
+    }
+    return {ok:true,json:async()=>String(input)==='/api/boxes'?bank:{mode:'bank',hardware_status:'disconnected',devices:[]}} as Response;
+  });
+  const {container}=render(<App/>);
+  const source=await screen.findByRole('button',{name:/View Pikachu/});
+  expect(source).toHaveAttribute('draggable','true');
+  const dataTransfer={setData:vi.fn(),effectAllowed:'',dropEffect:''};
+  fireEvent.dragStart(source,{dataTransfer});
+  const target=container.querySelectorAll('.slot')[1];
+  fireEvent.dragOver(target,{dataTransfer});
+  expect(target).toHaveClass('drop-target');
+  fireEvent.drop(target,{dataTransfer});
+  await waitFor(()=>expect(screen.getByRole('button',{name:/View Pikachu.*slot 2/})).toBeInTheDocument());
+  const call=vi.mocked(fetch).mock.calls.find(c=>c[1]?.method==='POST');
+  expect(call?.[0]).toBe('/api/pokemon/demo-25/move');
+  expect(JSON.parse(call?.[1]?.body as string)).toEqual({box_id:1,slot:1,expected:occupied?'other':null});
+});
+
+it('reports failed drags without moving the displayed Pokémon',async()=>{
+  vi.mocked(fetch).mockImplementation(async(input,options)=>({ok:!options?.method,json:async()=>options?.method?{detail:'Destination changed. Refresh your boxes before moving.'}:String(input)==='/api/boxes'?boxes:{mode:'bank',hardware_status:'disconnected',devices:[]}} as Response));
+  const {container}=render(<App/>);
+  const source=await screen.findByRole('button',{name:/View Pikachu/});
+  const dataTransfer={setData:vi.fn()};
+  fireEvent.dragStart(source,{dataTransfer});
+  fireEvent.drop(container.querySelectorAll('.slot')[1],{dataTransfer});
+  expect(await screen.findByRole('alert')).toHaveTextContent('Destination changed');
+  expect(screen.getByRole('button',{name:/View Pikachu.*slot 1/})).toBeEnabled();
+});

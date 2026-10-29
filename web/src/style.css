@@ -1208,3 +1208,7 @@ dialog {
   .box-exports { margin-left: 0; }
   .export-actions { justify-content: flex-end; }
 }
+
+.slot button[draggable="true"] { cursor: grab; }
+.slot button[draggable="true"]:active { cursor: grabbing; }
+.slot.drop-target { outline: 3px solid #458363; outline-offset: -3px; background: #e4f2e9; }
