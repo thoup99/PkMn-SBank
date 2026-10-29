@@ -219,7 +219,7 @@ def test_destination_catalog_and_unsupported_game_are_explicit(usb):
  manager=LiveTrading(store,host_check=lambda:True,devices=devices,process_factory=lambda *a,**k:pytest.fail('must not launch an unsupported game'))
  games=manager.current()['games']
  assert {g['key'] for g in games}=={'lgpe','swsh','bdsp','pla','sv','za'}
- assert [g['key'] for g in games if g['available']]==['swsh','sv','za']
+ assert [g['key'] for g in games if g['available']]==['swsh','pla','sv','za']
  with pytest.raises(StorageError,match='Choose an available'):
   manager.start('generated-pikachu',str(device),'12345678',str(uuid.uuid4()),game='bdsp')
  client=TestClient(create_app(data_dir=store.root))

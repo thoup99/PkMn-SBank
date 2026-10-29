@@ -240,6 +240,7 @@ def build_parser():
     ap.add_argument("--trade-box-collect", default=None,
                     help="write every record the console shows or offers to this directory, one "
                          "file per distinct record, named by species and nickname")
+    ap.add_argument("--one-trade-receipt", default=None, help="durable receipt for one bounded trade")
     ap.add_argument("--offer-out", default=None,
                     help="write the record the console traded to this file, -N before the extension "
                          "for trade N above 1")
@@ -278,9 +279,12 @@ def build_parser():
     return ap
 
 
-def main():
+def main(argv=None):
     ap = build_parser()
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    if args.one_trade_receipt:
+        if not args.trade_box or len(args.trade_box_record) != 1 or not args.offer_out or args.online or args.for_receiver or args.trade_back or args.fresh_pid or args.trade_box_ours or args.interrupt_before_phase_6:
+            ap.error("--one-trade-receipt requires one ordinary --trade-box-record, --trade-box and --offer-out")
     trade_back.check(ap, args, "--trade-box-record", "--online", "--for-receiver")
     offer_check = {}            # a gift made for the receiving player takes it too (pokeldn.receiver_gift)
     if args.trade_box_record:
@@ -374,12 +378,14 @@ def main():
     box_states = [{"mtime": os.path.getmtime(path) if path else None, "record": build_offer(path)}
                   for path in box_files]
     trades = [0]
+    from pokeldn.pla.receipt import BoundedTrade
+    bounded = BoundedTrade(args.offer_out, args.one_trade_receipt, box_states[0]['record']) if args.one_trade_receipt else None
 
     def offer_record():
         """-> the record for the trade at hand: one per completed trade, the last once they run out."""
         index = min(trades[0], len(box_files) - 1)
         box_file, box_state = box_files[index], box_states[index]
-        if box_file:
+        if box_file and not bounded:
             mtime = os.path.getmtime(box_file)
             if mtime != box_state["mtime"]:
                 box_state.update(mtime=mtime, record=build_offer(box_file))
@@ -628,6 +634,8 @@ def main():
                                 print(f"[pla] {src_ip}: join request did not parse, "
                                       f"{msg.payload[:16].hex()}")
                                 continue
+                            if bounded and not bounded.admit():
+                                continue
                             # A new join is a fresh session: the console re-rolls its variable id
                             # and restarts its streams at 1.
                             reliable_high.pop(src_ip, None)
@@ -745,6 +753,10 @@ def main():
                                              f"key {key.hex()}, body {payload_body[:16].hex()}"
                                              f"{'...' if len(payload_body) > 16 else ''} "
                                              f"{len(payload_body)}B)"))
+                                if bounded and bounded.completed:
+                                    if trade_box.read_payload(cm["payload"]) is not None:
+                                        arrived(src_ip)
+                                    continue
                                 offered = trade_box.read_payload(cm["payload"])
                                 if offered is not None:
                                     # Its first after a trade: back on its box (docs/pla.md).
@@ -755,6 +767,8 @@ def main():
                                     record(rec="box", src=src_ip, selector=offered["selector"],
                                            hex=offered["record"].hex(), t=time.time())
                                     if offered["selector"] == trade_box.SELECTOR_OFFERING:
+                                        if bounded:
+                                            bounded.offered(offered["record"])
                                         console_offer[src_ip] = offered["record"]
                                     if args.trade_box_collect and offered["record"] not in collected:
                                         collected.add(offered["record"])
@@ -779,8 +793,14 @@ def main():
                                     for ckey, opened in channel_table.parse(cm["payload"]):
                                         print(f"[pla] <- {src_ip}: channel {ckey.hex()} "
                                               f"{'open' if opened else 'closed'}")
+                                        if bounded and opened and ckey == trade_box.PHASE_KEY:
+                                            bounded.phases.clear()
                                         # the phase key closes once the trade is written
                                         if not opened and ckey == trade_box.PHASE_KEY:
+                                            if bounded:
+                                                if not bounded.closed():
+                                                    continue
+                                                deadline = min(deadline, time.time() + 30)
                                             show_done()
                                             screen.received("pla", console_offer.get(src_ip))
                                             arriving.add(src_ip)
@@ -791,7 +811,7 @@ def main():
                                                 screen.offer("pla", offer_record())
                                             print(f"[pla] {src_ip}: trade {trades[0]} complete, the "
                                                   "phase key closed")
-                                            if args.offer_out and src_ip in console_offer:
+                                            if not bounded and args.offer_out and src_ip in console_offer:
                                                 path = pokemon_service.trade_path(args.offer_out,
                                                                                   trades[0])
                                                 with open_output(path, "wb") as fh:
@@ -859,12 +879,16 @@ def main():
                                         if not args.stay_after_leave:
                                             deadline = time.time()
                                         break
+                                    if bounded and bounded.incoming is None:
+                                        raise ValueError("No durable incoming candidate before trade phase")
                                     seq = next_seq(src_ip, msg.port)
                                     body = trade_box.build_phase(
                                         trade_box.PHASE_SELECTOR_HOST, phase[1], seq,
                                         flags=cm["flags"])
                                     pkt = send_reliable(src_ip, header.src_var, body,
                                                         protocol=trade_box.PROTOCOL, port=msg.port)
+                                    if bounded:
+                                        bounded.phase_sent(phase[1])
                                     record(rec="out", dst=src_ip, kind="trade phase",
                                            phase=phase[1], hex=pkt.hex(), t=time.time())
                                     print(f"[pla] -> {src_ip}: trade phase {phase[1]} as the host "
@@ -1042,6 +1066,8 @@ def main():
                                     print(f"[pla] -> {src_ip}: reliable mirror (host seq {s}, "
                                           f"payload {rm['payload'].hex()})")
                 except Exception:
+                    if bounded:
+                        raise
                     print(f"[pla] {src_ip}: the message handler raised, still serving")
                     traceback.print_exc()
     except KeyboardInterrupt:
